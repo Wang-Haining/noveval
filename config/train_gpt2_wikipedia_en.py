@@ -26,4 +26,4 @@ log_interval = 10
 weight_decay = 1e-1
 
 # compile
-compile = False
+# compile = False

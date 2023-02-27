@@ -5,13 +5,13 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=0-2:0:00
+#SBATCH --time=0-0:30:00
 #SBATCH --mem=64gb
 #SBATCH --partition gpu-debug
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=gpt2
-#SBATCH --output=~/ppl_nanoGPT/output.log
-#SBATCH --error=~/ppl_nanoGPT/error.log
+#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/output.log
+#SBATCH --error=N/scratch/hw56/ppl_nanoGPT/error.log
 
 ######  Module commands #####
 module load python/3.10.5

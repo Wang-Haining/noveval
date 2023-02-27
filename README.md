@@ -3,6 +3,13 @@
 
 ## Venv setup
 ```bash
+# on Big Red 200, with `module list`
+#Currently Loaded Modules:
+#  1) craype-x86-rome          5) gcc/11.2.0          9) cray-libsci/21.08.1.2  13) nano/6.4
+#  2) libfabric/1.11.0.3.71    6) craype/2.7.14      10) PrgEnv-gnu/8.3.2       14) cudatoolkit/11.7
+#  3) craype-network-ofi       7) cray-dsmml/0.2.2   11) xalt/2.10.34           15) python/3.10.5
+#  4) perftools-base/21.12.0   8) cray-mpich/8.1.14  12) git/2.34
+
 python3.10 -m venv .ppl
 source .ppl/bin/activate
 python3 -m pip install wheel==0.38.4

@@ -10,8 +10,8 @@
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=gpt2
-#SBATCH --output=~/ppl_nanoGPT/output.log
-#SBATCH --error=~/ppl_nanoGPT/error.log
+#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/output.log
+#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/error.log
 
 ######  Module commands #####
 module load python/3.10.5
