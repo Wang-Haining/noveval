@@ -1,4 +1,6 @@
 *out/
+*.err
+*.out
 output.log
 error.log
 cache/

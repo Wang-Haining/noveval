@@ -2,16 +2,16 @@
 #####  Constructed by HPC everywhere #####
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=4
 #SBATCH --time=2-0:0:00
-#SBATCH --mem=64gb
+#SBATCH --mem=32gb
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=gpt2
-#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/output.log
-#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/error.log
+#SBATCH --job-name=br200_gpt2
+#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date +%s).err
+#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date +%s).out
 
 ######  Module commands #####
 module load python/3.10.5
