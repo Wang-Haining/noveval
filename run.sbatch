@@ -10,8 +10,8 @@
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=br200_gpt2
-#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date +%s).err
-#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date +%s).out
+#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date+%s).err
+#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date+%s).out
 
 ######  Module commands #####
 module load python/3.10.5
