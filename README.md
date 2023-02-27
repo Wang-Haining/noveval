@@ -14,7 +14,7 @@ python3.10 -m venv .ppl
 source .ppl/bin/activate
 python3 -m pip install wheel==0.38.4
 python3 -m pip install lit~=15.0
-python3 -m pip install --pre torch==2.0.0.dev20230225+cu117 --index-url https://download.pytorch.org/whl/nightly/cu117
+python3 -m pip install --pre torch==2.0.0.dev20230226+cu117 --index-url https://download.pytorch.org/whl/nightly/cu117
 python3 -m pip install numpy~=1.24 tiktoken==0.2.0 datasets==2.9.0 tqdm~=4.64 wandb~=0.13.10
 # python3 -m pip install pip install apache_beam==2.45.0 mwparserfromhell==0.6.4
 ```
