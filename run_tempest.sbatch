@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8		# number of cores to allocate - do not allocate more than 16 cores per GPU
 #SBATCH --gpus-per-task=2		# number of GPUs to allocate - all GPUs are currently A40 model
 #SBATCH --mem=64000                     # 2000 MB of Memory allocated - do not allocate more than 128000 MB mem per GPU
-#SBATCH --time=5-00:00:00               # Maximum job run time
+#SBATCH --time=14-00:00:00               # Maximum job run time
 #SBATCH --output=/home/g91p721/ppl_nanoGPT/torchrun-$(date+%s).out 	# standard output file (%j = jobid)
 #SBATCH --error=/home/g91p721/ppl_nanoGPT/torchrun-$(date+%s).err 	# standard error file
 #SBATCH --mail-user=hw56@iu.edu	# email address to recieve job updates
