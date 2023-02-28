@@ -10,8 +10,8 @@
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=br200_gpt2
-#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date+%s).err
-#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-$(date+%s).out
+#SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-%j.err
+#SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-%j.out
 
 ######  Module commands #####
 module load python/3.10.5
@@ -22,4 +22,4 @@ module load cudatoolkit/11.7
 source .ppl/bin/activate
 
 # python scripts
-torchrun --standalone --nproc_per_node=4 train.py config/train_gpt2_wikipedia_en.py
+torchrun --standalone --nproc_per_node=4 train.py config/train_gpt2_wikipedia_en_br200.py
