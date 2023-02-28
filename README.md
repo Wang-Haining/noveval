@@ -4,6 +4,8 @@
 ## Venv setup
 ```bash
 # on Big Red 200, with `module list`
+module load ~/.module/default
+
 #Currently Loaded Modules:
 #  1) craype-x86-rome          5) gcc/11.2.0          9) cray-libsci/21.08.1.2  13) nano/6.4
 #  2) libfabric/1.11.0.3.71    6) craype/2.7.14      10) PrgEnv-gnu/8.3.2       14) cudatoolkit/11.7
