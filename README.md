@@ -20,6 +20,7 @@ python3 -m pip install --pre torch==2.0.0.dev20230226+cu118 --index-url https://
 python3 -m pip install numpy~=1.24 tiktoken==0.2.0 datasets==2.9.0 tqdm~=4.64 wandb~=0.13.10
 python3 -m pip install jinja2~=3.1.2
 python3 -m pip install apache_beam~=2.45.0 mwparserfromhell~=0.6.4
+pip install --upgrade dill
 ```
 
 
