@@ -26,3 +26,5 @@ log_interval = 10
 # weight decay
 weight_decay = 1e-1
 
+# no compile, as it is not stable
+compile = False

@@ -14,6 +14,7 @@ module load ~/.module/default
 
 python3.10 -m venv .ppl
 source .ppl/bin/activate
+#python3 -m pip install torch
 python3 -m pip install wheel==0.38.4
 python3 -m pip install lit~=15.0
 python3 -m pip install --pre torch==2.0.0.dev20230226+cu118 --index-url https://download.pytorch.org/whl/nightly/cu118
