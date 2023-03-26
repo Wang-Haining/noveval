@@ -27,6 +27,7 @@ def calculate_ppl(text: str,
         tokenizer: a tiktoken tokenizer encodes a string (i.e., `text`) to token ids
         device: str, committed device(s) used for calculation; should be legal in torch.device(), e.g., "cuda", "cpu",
             "cuda:1"
+        sequence_length: the desired length of tokens
         block_size: int, max sequence length of `model`
         stride: int, TODO
         random_state: supply a random number generator
@@ -53,6 +54,7 @@ def calculate_ppl(text: str,
     # calculate ppl of x[512:]
     if compile:
         model = torch.compile(model)
+    model.to(device)
     model.eval()
     losses = []
     for k in range(sequence_length//stride):
