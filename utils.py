@@ -1,18 +1,25 @@
 import os
 import re
+import math
 import json
 import numpy as np
 from itertools import chain
 
 
-def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/"):
+def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve_ordinal=True):
 
     aspects = [
         'SUBSTANCE', 'APPROPRIATENESS', 'SOUNDNESS_CORRECTNESS', 'ORIGINALITY', 'RECOMMENDATION', 'CLARITY',
         'REVIEWER_CONFIDENCE']
 
+    def round_up(mean_score: float):
+        return int(math.ceil(mean_score - 0.5))
+
     def get_review_aspect_score(reviews, aspect):
-        aspect_dict = [{int(r['id']): np.mean([int(d[aspect]) for d in r['reviews']])} for r in acl_reviews]
+        if not preserve_ordinal:
+            aspect_dict = [{int(r['id']): np.mean([int(d[aspect]) for d in r['reviews']])} for r in acl_reviews]
+        else:
+            aspect_dict = [{int(r['id']): round_up(np.mean([int(d[aspect]) for d in r['reviews']]))} for r in acl_reviews]
         aspect_sorted_list = [list(d.values())[0] for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])]
         aspect_index_list = [list(d.keys())[0] for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])]
         return aspect_sorted_list, aspect_index_list
