@@ -15,11 +15,11 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
     def round_up(mean_score: float):
         return int(math.ceil(mean_score - 0.5))
 
-    def get_review_aspect_score(reviews, aspect):
+    def get_review_aspect_score(reviews, aspect, preserve_ordinal):
         if not preserve_ordinal:
-            aspect_dict = [{int(r['id']): np.mean([int(d[aspect]) for d in r['reviews']])} for r in acl_reviews]
+            aspect_dict = [{int(r['id']): np.mean([int(d[aspect]) for d in r['reviews']])} for r in reviews]
         else:
-            aspect_dict = [{int(r['id']): round_up(np.mean([int(d[aspect]) for d in r['reviews']]))} for r in acl_reviews]
+            aspect_dict = [{int(r['id']): round_up(np.mean([int(d[aspect]) for d in r['reviews']]))} for r in reviews]
         aspect_sorted_list = [list(d.values())[0] for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])]
         aspect_index_list = [list(d.keys())[0] for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])]
         return aspect_sorted_list, aspect_index_list
@@ -41,15 +41,15 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
     text_check_list = [list(d.keys())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
 
     # get review scores
-    acl_reviews = []
+    reviews = []
     for f in review_paths:
         review = json.load(open(f, 'r'))
-        acl_reviews.append(review)
+        reviews.append(review)
 
     review_scores = {}
     review_checks = {}
     for aspect in aspects:
-        score, check = get_review_aspect_score(acl_reviews, aspect)
+        score, check = get_review_aspect_score(reviews, aspect, preserve_ordinal)
         review_scores.update({aspect.lower(): score})
         review_checks.update({aspect.lower(): check})
 
