@@ -8,10 +8,10 @@ from utils import get_paper_and_score
 from calculate_ppl import calculate_ppl
 
 # load paper and review score
-review_scores = get_paper_and_score(corpus_path="./PeerRead/data/acl_2017/")
+review_scores = get_paper_and_score(corpus_path="./PeerRead/data/acl_2017/", preserve_ordinal=True)
 
 # load model
-device = 'cpu'
+device = 'cuda:0'
 out_dir = 'out'
 ckpt_path = os.path.join(out_dir, 'ckpt.pt')
 checkpoint = torch.load(ckpt_path, map_location=device)
@@ -28,7 +28,7 @@ encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
 ppl = [calculate_ppl(text=text,
                      model=model,
                      tokenizer=encode,
-                     device="cuda:0",
+                     device=device,
                      sequence_length=2048,
                      block_size=1024,
                      sliding_window_length=512,
