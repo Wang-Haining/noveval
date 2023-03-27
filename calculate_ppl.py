@@ -14,25 +14,33 @@ def calculate_ppl(text: str,
                   device: str,
                   sequence_length: int = 2048,
                   block_size: int = 1024,
-                  stride: int = 512,
+                  sliding_window_length: int = 512,
                   random_state: [None | int] = None,
-                  compile=False):
+                  compile_model=False) -> np.float64:
     """
-    Calculate perplexity of a continuous sequence of tokens extracted from a given, perhaps long, document.
+    Calculate perplexity of a continuous sequence of tokens extracted from a given text.
+    The function finds a random chunk of `sliding_window_length+sequence_length` tokens and returns the perplexity score
+     of the last `sequence_length` tokens.
 
-    TODO: only concern perplexity of tokens properly contextualized (i.e., tokens with at least 512 tokens in the context)
+    Note that the function approximates the perplexity score with a sliding window: for each `block_size` chunk of
+    text, it only returns the perplexity of the last `block_size - sliding_window_length` tokens. This method favors
+    global innovation over local grammatical choice.
+
+    Uncomment the followed section to have a working example.
+
     Args:
-        text: an English string, recommended to be longer than 2,000 words to get stable perplexity
+        text: an English string longer than 2,000 words to get stable perplexity
         model: a nano-GPT style casual language model
-        tokenizer: a tiktoken tokenizer encodes a string (i.e., `text`) to token ids
-        device: str, committed device(s) used for calculation; should be legal in torch.device(), e.g., "cuda", "cpu",
-            "cuda:1"
-        sequence_length: the desired length of tokens
-        block_size: int, max sequence length of `model`
-        stride: int, TODO
-        random_state: supply a random number generator
-        compile: support pytorch 2.0 compile()
+        tokenizer: a `tiktoken` tokenizer that encodes a string (`text`) to token ids
+        device: device used for calculation, e.g. "cpu", "cuda", and "cuda:1"
+        sequence_length: the desired length of tokens whose perplexity score will be returned
+        block_size: max sequence length of `model`
+        sliding_window_length (int): the leading number of tokens whose loss will not be returned
+        random_state: a random number generator
+        compile_model (bool): if True, compile the PyTorch model
 
+    Returns:
+        Perplexity score as a float.
     """
     # prepare rng
     if random_state is None:
@@ -44,32 +52,35 @@ def calculate_ppl(text: str,
 
     # prepare data
     data = np.array(tokenizer(text))  # np.array, token ids of the whole document
-    if len(data) < sequence_length + 1:
-        raise RuntimeError(f"Number of encoded tokens ({len(data)}) is less than sequence length ({sequence_length}).")  # todo: < or <=
-    begin_loc = rng.integers(len(data) - sequence_length)
-    begin_locs = [begin_loc + stride * offset for offset in range(sequence_length//stride)]  # todo: test
+    if len(data) < sequence_length + sliding_window_length + 1:
+        raise RuntimeError(f"`text` too short ({len(data)})."
+                           f"Expect `text` length no short than "
+                           f"({sequence_length + sliding_window_length + 1}) in terms of tokens.")
+    begin_loc = rng.integers(low=0, high=len(data) - sequence_length - sliding_window_length)
+    begin_locs = [begin_loc + sliding_window_length * offset for offset in range(sequence_length//sliding_window_length)]
     X = torch.stack([torch.from_numpy((data[i: i+block_size]).astype(np.int64)) for i in begin_locs])
     Y = torch.stack([torch.from_numpy((data[i+1: i+1+block_size]).astype(np.int64)) for i in begin_locs])
 
-    # calculate ppl of x[512:]
-    if compile:
+    # calculate ppl of last `block_size - sliding_window_length` tokens
+    # conditioned on previous `sliding_window_length` tokens
+    if compile_model:
         model = torch.compile(model)
     model.to(device)
     model.eval()
     losses = []
-    for k in range(sequence_length//stride):
+    for k in range(sequence_length//sliding_window_length):
         x, y = X[k].view(1, -1), Y[k].view(1, -1)
         _, loss = model.forward_reduction_none(x.to(device), y.to(device))
         loss = loss.cpu()
-        loss_w_context = loss[stride:].tolist()  # only take the nll of last `stride` tokens
+        loss_w_context = loss[sliding_window_length:].tolist()  # only take nll of last `sliding_window_length` tokens
         losses.extend(loss_w_context)
 
     return np.exp2(np.mean(losses))
 
-#
+
 # if __name__ == '__main__':
 #
-#     # load from a model saved in a specific directory
+#     # load model
 #     device = 'cuda:0'
 #     out_dir = 'out'
 #     ckpt_path = os.path.join(out_dir, 'ckpt.pt')
@@ -82,19 +93,19 @@ def calculate_ppl(text: str,
 #     # load tokenizer
 #     enc = tiktoken.get_encoding("gpt2")
 #     encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
-#     # decode = lambda l: enc.decode(l)
 #
+#     # load corpus
 #     wikitext_test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 #     text = " ".join(wikitext_test["text"]).replace('\n', '')
 #
+#     # calculate ppl
 #     ppl = calculate_ppl(text=text,
 #                         model=model,
 #                         tokenizer=encode,
 #                         device="cuda:0",
 #                         sequence_length=2048,
 #                         block_size=1024,
-#                         stride=512,
+#                         sliding_window_length=512,
 #                         random_state=0,
-#                         compile=True)
-
-
+#                         compile_model=True)
+#     print(ppl)  # ~9.54
