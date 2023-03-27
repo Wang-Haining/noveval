@@ -15,7 +15,7 @@ def calculate_ppl(text: str,
                   sequence_length: int = 2048,
                   block_size: int = 1024,
                   sliding_window_length: int = 512,
-                  random_state: [None | int] = None,
+                  random_state: [None or int] = None,
                   compile_model=False) -> np.float64:
     """
     Calculate perplexity of a continuous sequence of tokens extracted from a given text.
