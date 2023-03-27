@@ -32,12 +32,12 @@ def calculate_ppl(text: str,
         text: an English string longer than 2,000 words to get stable perplexity
         model: a nano-GPT style casual language model
         tokenizer: a `tiktoken` tokenizer that encodes a string (`text`) to token ids
-        device: device used for calculation, e.g. "cpu", "cuda", and "cuda:1"
+        device: device used for computation; should be legal in torch.device(), e.g. "cpu", "cuda", and "cuda:1"
         sequence_length: the desired length of tokens whose perplexity score will be returned
         block_size: max sequence length of `model`
-        sliding_window_length (int): the leading number of tokens whose loss will not be returned
-        random_state: a random number generator
-        compile_model (bool): if True, compile the PyTorch model
+        sliding_window_length (int): leading number of tokens whose loss will not be returned
+        random_state: supply a random number generator
+        compile_model (bool): if True, compile the PyTorch model (require PyTorch 2.0 installed)
 
     Returns:
         Perplexity score as a float.
