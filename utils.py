@@ -30,13 +30,13 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
     review_paths = [p.path for p in chain(*[os.scandir(os.path.join(dir, 'reviews')) for dir in paths])]
 
     # get papers
-    acl_papers = []
+    papers = []
     for f in paper_paths:
         paper = json.load(open(f, 'r'))
-        acl_papers.append(paper)
+        papers.append(paper)
 
     text_dict = [{int(paper['name'].split('.pdf')[0]): re.sub(r"\n\d+", "", "\n\n".join(
-        [d['text'] for d in paper['metadata']['sections']])).replace("1 000\n\n", '')} for paper in acl_papers]
+        [d['text'] for d in paper['metadata']['sections']])).replace("1 000\n\n", '')} for paper in papers]
     text_sorted_list = [list(d.values())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
     text_check_list = [list(d.keys())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
 
