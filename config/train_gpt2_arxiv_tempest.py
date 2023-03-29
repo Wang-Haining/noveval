@@ -26,3 +26,6 @@ log_interval = 10
 # weight decay
 weight_decay = 1e-1
 
+# resume from a model pretrained with wikipedia_en
+init_from = 'resume'
+
