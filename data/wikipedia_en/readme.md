@@ -1,5 +1,5 @@
 
-## openwebtext dataset
+## wikipedia_en dataset
 
 after running `prepare.py` (preprocess) we get:
 
