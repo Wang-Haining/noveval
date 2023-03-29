@@ -46,11 +46,11 @@ def round_up(mean_score: float):
 
 
 review_aspect_scores = []
-for review in reviews:
+for review in reviews:  # iterate over all records
     paper_review_tmp = []
-    for review_dict in review['reviews']:
+    for review_dict in review['reviews']:  # review['reviews'] contains ~10 reviews for a paper
         if "AnonReviewer" in review_dict.get('OTHER_KEYS', ''):  # 'OTHER_KEYS' stores the origin of the review
-            review_aspects = {'id': int(review.get('id'))}
+            review_aspects = {'id': int(review.get('id'))}  # get every aspect of a reviewer
             for aspect in aspects + ['OTHER_KEYS']:
                 if aspect != 'DATE':
                     review_aspects.update({aspect: review_dict.get(aspect, None)})
@@ -58,19 +58,19 @@ for review in reviews:
                     try:
                         review_aspects.update({aspect: datetime.strptime(review_dict.get(aspect, None),
                                                                          "%d %b %Y")})  # may not match format or get None
-                    except ValueError as e:
+                    except (ValueError, TypeError) as e:
                         print(e)
-            paper_review_tmp.append(review_aspects)
+            paper_review_tmp.append(review_aspects)  # stores date, id, and aspects of relevant reviewers (duplicates exsit for now)
     # merge score of each reviewer; take the latest if scores of a specific reviewer disagree in history
     reviewer_final_scores = []  # keys: ['id', 'reviewer'] + aspects
-    reviewers = sorted(set([r['OTHER_KEYS'] for r in paper_review_tmp]))
+    reviewers = sorted(set([r['OTHER_KEYS'] for r in paper_review_tmp]))  # find out unique reviewers
     for reviewer in reviewers:
-        reviewer_final_score = {'reviewer': reviewer, 'id': int(review.get('id'))}
-        # all_review_dict_from_reviewer = [d for d in paper_review_tmp if d['OTHER_KEYS'] == reviewer]
+        reviewer_final_score = {'reviewer': reviewer, 'id': int(review.get('id'))}  #
         for _aspect in aspects:
             # select int scores sorted by time
-            aspect_score_tmp = [{'DATE': d.get('DATE', None), _aspect: d[_aspect]} for d in paper_review_tmp if
+            aspect_score_tmp = [{'DATE': d.get('DATE'), _aspect: d[_aspect]} for d in paper_review_tmp if
                                 (d['OTHER_KEYS'] == reviewer and isinstance(d[_aspect], int))]
+            # print(aspect_score_tmp)
             if len(aspect_score_tmp) == 0:  # a reviewer never rates a specific aspect
                 reviewer_final_score.update({_aspect: None})
             elif len(aspect_score_tmp) == 1:  # only one aspect rating from a reviewer
@@ -96,13 +96,14 @@ review_scores = []
 for paper_id in [list(d.keys())[0] for d in text_dict]:
     paper_review = {'id': paper_id}
     for aspect in aspects:
-        try:
-            paper_review.update(
-                {aspect: round_up(np.mean([r[aspect] for r in review_aspect_scores if r['id'] == paper_id]))})
-        except (ValueError, TypeError):  # no ratings
-            paper_review.update({aspect: None})
+        scores = [r[aspect] for r in review_aspect_scores if (r['id'] == paper_id and r[aspect] is not None)]
+        if len(scores) >= 1:
+            paper_review.update({aspect.lower(): round_up(np.mean(scores))})
+        else:  # no ratings
+            paper_review.update({aspect.lower(): None})
     paper_review.update({"paper": [list(d.values())[0] for d in text_dict if list(d.keys())[0] == paper_id][0]})
     review_scores.append(paper_review)
+
 
 # load model
 device = 'cpu'
