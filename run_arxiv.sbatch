@@ -22,5 +22,5 @@
 module load Python/3.10.4-GCCcore-11.3.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0
 
-source activate .ppl
+source .ppl/bin/activate
 torchrun --standalone --nproc_per_node=2 train.py --init_from=resume config/train_gpt2_arxiv_tempest.py
