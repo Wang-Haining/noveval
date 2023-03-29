@@ -14,11 +14,11 @@ We should get `arxiv-metadata-oai-snapshot.json` saved in the same directory.
 
 Then run `python data/arxiv/prepare.py`, we can get:
 
-- train.bin is ~8.7GB, val.bin ~4.3MB
-- train has ~4.6B tokens (4,645,199,244)
-- val has ~2.2M tokens (2,231,052)
+- train.bin is ~100MB, val.bin ~5.3MB
+- train has ~52MB tokens (52,041,540)
+- val has ~2.7M tokens (2,752,404)
 
-this came from 6,458,670 documents in total.
+this came from 230,483 STEM abstracts in total.
 
 references:
 
