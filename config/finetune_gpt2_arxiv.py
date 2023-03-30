@@ -16,18 +16,16 @@ dataset = 'arxiv'
 # it takes ~318 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
 # we run 10 epochs of training
 # this makes total number of tokens be .5B
-learning_rate = 6e-4  # init (max) learning rate
-warmup_iters = 141000 + 200
 max_iters = 141000 + 3500  # 141000 is the total steps of the pretrained gpt2
-lr_decay_iters = 141000 + 3500
 
 # eval stuff
 eval_interval = 500
 eval_iters = 200
 log_interval = 10
 
-# weight decay
-weight_decay = 1e-1
+# finetune at constant LR
+learning_rate = 6e-5  # min_LR of the previous run
+decay_lr = False
 
 # no compile, as it is not stable
 compile = False
