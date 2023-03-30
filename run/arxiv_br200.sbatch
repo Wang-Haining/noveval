@@ -3,9 +3,9 @@
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=2
 #SBATCH --cpus-per-task=4
-#SBATCH --time=0-4:0:00
+#SBATCH --time=0-12:0:00
 #SBATCH --mem=32gb
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
@@ -22,4 +22,4 @@ module load cudatoolkit/11.7
 source .ppl/bin/activate
 
 # python scripts
-torchrun --standalone --nproc_per_node=1 train.py config/train_gpt2_arxiv.py
+torchrun --standalone --nproc_per_node=2 train.py config/train_gpt2_arxiv.py
