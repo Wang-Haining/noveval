@@ -9,7 +9,7 @@
 #SBATCH --mem=32gb
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=br200_gpt2
+#SBATCH --job-name=br200_gpt2_wikipedia
 #SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/torchrun-%j.out
 #SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/torchrun-%j.err
 
