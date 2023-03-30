@@ -11,8 +11,8 @@ from calculate_ppl import calculate_ppl
 review_scores = get_paper_and_score(corpus_path="./PeerRead/data/acl_2017/", preserve_ordinal=True)
 
 # load model
-device = 'cuda:0'
-out_dir = 'out'
+device = 'cpu'
+out_dir = 'out_wikipedia_en'
 ckpt_path = os.path.join(out_dir, 'ckpt.pt')
 checkpoint = torch.load(ckpt_path, map_location=device)
 gptconf = GPTConfig(**checkpoint['model_args'])

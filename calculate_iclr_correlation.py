@@ -107,7 +107,7 @@ for paper_id in [list(d.keys())[0] for d in text_dict]:
 
 # load model
 device = 'cpu'
-out_dir = 'out'
+out_dir = 'out_wikipedia_en'
 ckpt_path = os.path.join(out_dir, 'ckpt.pt')
 checkpoint = torch.load(ckpt_path, map_location=device)
 gptconf = GPTConfig(**checkpoint['model_args'])
