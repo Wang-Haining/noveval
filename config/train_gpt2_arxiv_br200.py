@@ -4,22 +4,24 @@
 
 wandb_log = True
 wandb_project = 'ppl_nanogpt'
-wandb_run_name='gpt2-124m-br200-4A100-wikipedia_en'
+wandb_run_name='gpt2-124m-br200-1A100-arxiv'
+init_from = 'resume'
 
-# these make the total batch size be ~0.33M
-# 16 batch size * 1024 block size * 5 gradaccum * 4 GPUs = 327,680
+# these make the total batch size be ~0.08M
+# 16 batch size * 1024 block size * 5 gradaccum * 1 GPU = 81,920
 batch_size = 16
 block_size = 1024
-dataset = 'wikipedia_en'
+dataset = 'arxiv'
 
-# it takes 14,176 iters to exhaust one epoch of wikipedia_en
+# it takes 635 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
 # we run 10 epochs of training
-# this makes total number of tokens be 46B
-max_iters = 141760
-lr_decay_iters = 141760
+# this makes total number of tokens be .5B
+warmup_iters = 500
+max_iters = 6350
+lr_decay_iters = 6350
 
 # eval stuff
-eval_interval = 1000
+eval_interval = 500
 eval_iters = 200
 log_interval = 10
 

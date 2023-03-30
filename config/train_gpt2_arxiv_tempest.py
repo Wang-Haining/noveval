@@ -15,6 +15,7 @@ dataset = 'arxiv'
 # it takes ~318 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
 # we run 10 epochs of the training set
 # this makes total number of tokens be ~0.5B
+warmup_iters = 500
 max_iters = 3180
 lr_decay_iters = 3180
 
