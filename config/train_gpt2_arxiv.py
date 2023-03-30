@@ -13,7 +13,7 @@ batch_size = 16
 block_size = 1024
 dataset = 'arxiv'
 
-# it takes 635 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
+# it takes ~635 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
 # we run 10 epochs of training
 # this makes total number of tokens be .5B
 warmup_iters = 500

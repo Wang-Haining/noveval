@@ -1,4 +1,6 @@
 PeerRead/
+archive.zip
+arxiv-metadata-oai-snapshot.json
 *out/
 *.err
 *.out
