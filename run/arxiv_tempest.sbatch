@@ -10,9 +10,9 @@
 #SBATCH --nodes=1                       # number of nodes to allocate
 #SBATCH --ntasks-per-node=1             # number of discrete tasks - keep at one except for MPI
 #SBATCH --cpus-per-task=4		        # number of cores to allocate - do not allocate more than 16 cores per GPU
-#SBATCH --gpus-per-task=a100:2			# number of GPUs to allocate - all GPUs are currently A40 model
+#SBATCH --gpus-per-task=a100:1			# number of GPUs to allocate - all GPUs are currently A40 model
 #SBATCH --mem=64000                     # 2000 MB of Memory allocated - do not allocate more than 128000 MB mem per GPU
-#SBATCH --time=2-00:00:00               # Maximum job run time
+#SBATCH --time=0-2:00:00               # Maximum job run time
 #SBATCH --output=/home/g91p721/ppl_nanoGPT/logs/torchrun-%j.out 	# standard output file (%j = jobid)
 #SBATCH --error=/home/g91p721/ppl_nanoGPT/logs/torchrun-%j.err 	# standard error file
 #SBATCH --mail-user=hw56@iu.edu	        # email address to receive job updates
@@ -23,4 +23,4 @@ module load Python/3.10.4-GCCcore-11.3.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0
 
 source .ppl/bin/activate
-torchrun --standalone --nproc_per_node=2 train.py config/finetune_gpt2_arxiv.py
+torchrun --standalone --nproc_per_node=1 train.py config/finetune_gpt2_arxiv.py

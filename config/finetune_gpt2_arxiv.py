@@ -4,24 +4,24 @@
 
 wandb_log = True
 wandb_project = 'ppl_nanogpt'
-wandb_run_name = 'gpt2-124m-br200-2A100-arxiv'
+wandb_run_name = 'gpt2-124m-br200-1A100-arxiv'
 init_from = 'resume'
 
 # these make the total batch size be ~0.08M
-# 16 batch size * 1024 block size * 5 gradaccum * 2 GPU = 163,480
+# 16 batch size * 1024 block size * 5 gradaccum * 1 GPU = 81,920
 batch_size = 16
 block_size = 1024
 dataset = 'arxiv'
 
-# it takes ~318 iters to exhaust one epoch of arxiv (of 52,041,540 tokens)
+# it takes ~60 iters to exhaust one epoch of arxiv (of 4,944,468 tokens)
 # we run 10 epochs of training
-# this makes total number of tokens be .5B
-max_iters = 141000 + 3500  # 141000 is the total steps of the pretrained gpt2
+# this makes total number of tokens be ~50m
+max_iters = 141000 + 600  # 141000 is the total steps of the pretrained gpt2
 
 # eval stuff
-eval_interval = 500
-eval_iters = 200
-log_interval = 10
+eval_interval = 5
+eval_iters = 20
+log_interval = 1
 
 # finetune at constant LR
 learning_rate = 6e-5  # min_LR of the previous run
