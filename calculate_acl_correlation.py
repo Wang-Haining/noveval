@@ -12,7 +12,7 @@ review_scores = get_paper_and_score(corpus_path="./PeerRead/data/acl_2017/", pre
 
 # load model
 device = 'cpu'
-out_dir = 'out_wikipedia_en'
+out_dir = 'out_arxiv'  # 'out_wikipedia_en'
 ckpt_path = os.path.join(out_dir, 'ckpt.pt')
 checkpoint = torch.load(ckpt_path, map_location=device)
 gptconf = GPTConfig(**checkpoint['model_args'])
@@ -38,4 +38,4 @@ ppl = [calculate_ppl(text=text,
 review_scores.update({'ppl': ppl})
 
 df = pd.DataFrame.from_dict(review_scores)
-df.to_csv('./results/acl_corpus_ordinal.csv', index=False)
+df.to_csv('./results/acl_corpus_ordinal_arxiv.csv', index=False)  # todo

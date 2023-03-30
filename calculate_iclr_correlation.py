@@ -107,7 +107,7 @@ for paper_id in [list(d.keys())[0] for d in text_dict]:
 
 # load model
 device = 'cpu'
-out_dir = 'out_wikipedia_en'
+out_dir = 'out_arxiv'  # 'out_wikipedia_en'
 ckpt_path = os.path.join(out_dir, 'ckpt.pt')
 checkpoint = torch.load(ckpt_path, map_location=device)
 gptconf = GPTConfig(**checkpoint['model_args'])
@@ -136,4 +136,4 @@ for d in review_scores:
     d.update({'ppl': ppl})
 
 df = pd.DataFrame(review_scores)
-df.to_csv('./results/iclr_corpus_ordinal.csv', index=False)
+df.to_csv('./results/iclr_corpus_ordinal_arxiv.csv', index=False)  # todo
