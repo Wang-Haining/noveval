@@ -22,4 +22,4 @@ module load cudatoolkit/11.7
 source .ppl/bin/activate
 
 # python scripts
-torchrun --standalone --nproc_per_node=2 train.py config/train_gpt2_arxiv.py
+torchrun --standalone --nproc_per_node=2 train.py config/finetune_gpt2_arxiv.py
