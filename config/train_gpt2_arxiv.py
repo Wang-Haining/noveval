@@ -17,7 +17,7 @@ dataset = 'arxiv'
 # we run 10 epochs of training
 # this makes total number of tokens be .5B
 warmup_iters = 500
-max_iters = 6350
+max_iters = 141000 + 6350  # 141000 is the total steps of the pretrained gpt2
 lr_decay_iters = 6350
 
 # eval stuff
