@@ -1,5 +1,5 @@
 
-## arxiv dataset
+## arXiv dataset
 
 ### get raw data before running `prepare.py`
 
@@ -14,12 +14,13 @@ We should get `arxiv-metadata-oai-snapshot.json` saved in the same directory.
 
 Then run `python data/arxiv/prepare.py`, we can get:
 
-- train.bin is ~100MB, val.bin ~5.3MB
-- train has ~52MB tokens (52,041,540)
-- val has ~2.7M tokens (2,752,404)
+- train.bin is ~ MB, val.bin ~5.3MB
+- train has 4,944,468 tokens
+- val has 260,797 tokens
 
-this came from 230,483 STEM abstracts in total.
+this came from 25,634 abstracts from relevant fields published before 2016.
 
 references:
 
-- https://huggingface.co/datasets/wikipedia
+- Clement, C. B., Bierbaum, M., O'Keeffe, K. P., & Alemi, A. A. (2019). On the Use of ArXiv as a Dataset.
+arXiv preprint arXiv:1905.00075.

@@ -1,10 +1,6 @@
 """
-This module prepares the Arxiv corpus [1] corpus for model training and evaluation.
+This module prepares a subset of  the arXiv corpus for model training and evaluation.
 The script is adopted from `karpathy/nanoGPT/data/openwebtext/prepare.py` with some modification.
-
-References:
-    Clement, C. B., Bierbaum, M., O'Keeffe, K. P., & Alemi, A. A. (2019). On the Use of ArXiv as a Dataset.
-arXiv preprint arXiv:1905.00075.
 """
 
 import os
@@ -25,7 +21,9 @@ dataset = load_dataset("arxiv_dataset", data_dir='data/arxiv', ignore_verificati
 # check arxiv filed abbreviations on https://arxiv.org/category_taxonomy
 relevant_fields = ['cs.' + f for f in ['AI', 'CL', 'CY', 'HC', 'IR', 'LG', 'SI', 'GL', 'DL']] + ['stats.ML']
 dataset = dataset.filter(lambda x: any(f in x['categories'] for f in relevant_fields))
-# reserve 'abstract' ('text') feature only, now we have ~200m abstracts in relevant fields
+dataset = dataset.filter(lambda x: int(x['update_date'][:4]) <= 2015)
+# now we have 25634 abstracts in relevant fields updated before 2016
+# reserve 'abstract' ('text') feature only
 dataset = dataset.remove_columns(['id', 'submitter', 'authors', 'title', 'comments', 'journal-ref', 'doi', 'report-no',
                                   'categories', 'license', 'update_date']).rename_column('abstract', 'text')
 
@@ -38,11 +36,11 @@ split_dataset['val'] = split_dataset.pop('test') # rename the test split to val
 # DatasetDict({
 #     train: Dataset({
 #         features: ['text'],
-#         num_rows: 218958
+#         num_rows: 24352
 #     })
 #     val: Dataset({
 #         features: ['text'],
-#         num_rows: 11525
+#         num_rows: 1282
 #     })
 # })
 
@@ -76,10 +74,3 @@ for split, dset in tokenized.items():
         arr[idx : idx + example['len']] = example['ids']
         idx += example['len']
     arr.flush()
-
-# train.bin is ~17GB, val.bin ~8.5MB
-# train has ~9B tokens (9,035,582,198)
-# val has ~4M tokens (4,434,897)
-
-# to read the bin files later, e.g. with numpy:
-# m = np.memmap('train.bin', dtype=np.uint16, mode='r')
