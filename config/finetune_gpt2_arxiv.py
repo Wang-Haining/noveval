@@ -4,7 +4,7 @@
 
 wandb_log = True
 wandb_project = 'ppl_nanogpt'
-wandb_run_name = 'gpt2-124m-br200-1A100-arxiv'
+wandb_run_name = 'gpt2-124m-tempest-1A100-arxiv'
 init_from = 'resume'
 
 # these make the total batch size be ~0.08M
@@ -24,7 +24,7 @@ eval_iters = 20
 log_interval = 1
 
 # finetune at constant LR
-learning_rate = 6e-5  # min_LR of the previous run
+learning_rate = 3e-5  # half of min_LR of the pretraining
 decay_lr = False
 
 # no compile, as it is not stable
