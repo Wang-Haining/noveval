@@ -11,7 +11,7 @@ init_from = 'resume'
 # 16 batch size * 1024 block size * 5 gradaccum * 2 GPU = 16,320
 batch_size = 16
 block_size = 1024
-dataset = 'arxiv'
+dataset = 'acl'
 
 # it takes ~10,129 iters to exhaust one epoch of arxiv (of 165,309,909 tokens)
 # we run 2 epochs of finetuning
@@ -19,8 +19,8 @@ dataset = 'arxiv'
 max_iters = 141000 + 20000  # 141000 is the total steps of the pretrained gpt2
 
 # eval stuff
-eval_interval = 1000
-eval_iters = 200
+eval_interval = 500
+eval_iters = 100
 log_interval = 10
 
 # finetune at constant LR
