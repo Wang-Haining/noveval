@@ -1,6 +1,6 @@
 #!/bin/bash
 #####  Constructed by HPC everywhere #####
-#SBATCH --A r00094
+#SBATCH --account=r00094
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
