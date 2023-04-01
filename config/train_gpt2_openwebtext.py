@@ -4,18 +4,15 @@
 
 wandb_log = True
 wandb_project = 'ppl_nanogpt'
-wandb_run_name='gpt2-124m-br200-4A100-wikipedia_en'
-gradient_accumulation_steps = 5
+wandb_run_name='gpt2-124m-br200-4A100-openwebtext'
 
 # these make the total batch size be ~0.33M
 # 16 batch size * 1024 block size * 5 gradaccum * 4 GPUs = 327,680
 batch_size = 16
 block_size = 1024
-dataset = 'wikipedia_en'
+gradient_accumulation_steps = 5
 
-# it takes 14,176 iters to exhaust one epoch of wikipedia_en
-# we run 10 epochs of training
-# this makes total number of tokens be 46B
+# this makes total number of tokens be 300B
 max_iters = 141760
 lr_decay_iters = 141760
 

@@ -3,13 +3,13 @@
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=0-12:0:00
+#SBATCH --time=2-0:0:00
 #SBATCH --mem=32gb
 #SBATCH --partition gpu
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=br200_gpt2_wikipedia
+#SBATCH --job-name=br200_gpt2_arxiv
 #SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.out
 #SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.err
 
@@ -22,4 +22,4 @@ module load cudatoolkit/11.7
 source .ppl/bin/activate
 
 # python scripts
-torchrun --standalone --nproc_per_node=2 train.py config/finetune_gpt2_arxiv.py
+torchrun --standalone --nproc_per_node=4 train.py config/train_gpt2_openwebtext.py
