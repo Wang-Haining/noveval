@@ -1,10 +1,10 @@
 #!/bin/bash
 #####  Constructed by HPC everywhere #####
-#SBATCH --account=r00094
+#SBATCH --account=general
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=a100:4
+#SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=4
 #SBATCH --time=2-0:0:00
 #SBATCH --mem=32gb
