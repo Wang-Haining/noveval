@@ -1,6 +1,5 @@
 #!/bin/bash
 #####  Constructed by HPC everywhere #####
-#SBATCH -A=general
 #SBATCH --mail-user=hw56@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -10,7 +9,7 @@
 #SBATCH --mem=32gb
 #SBATCH --partition=gpu
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=br200_gpt2_arxiv
+#SBATCH --job-name=br200_gpt2_openwebtext
 #SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.out
 #SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.err
 

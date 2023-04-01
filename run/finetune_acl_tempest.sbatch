@@ -17,7 +17,7 @@
 #SBATCH --error=/home/g91p721/ppl_nanoGPT/logs/torchrun-%j.err 	# standard error file
 #SBATCH --mail-user=hw56@iu.edu	        # email address to receive job updates
 #SBATCH --mail-type=ALL			        # conditions to receive email notifications for job
-#SBATCH --job-name=finetune_arxiv       # job name
+#SBATCH --job-name=finetune_acl         # job name
 ## Run 'man sbatch' for more information on the options above.
 module load Python/3.10.4-GCCcore-11.3.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0

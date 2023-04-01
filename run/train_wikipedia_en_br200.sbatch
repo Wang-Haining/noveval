@@ -7,9 +7,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --time=2-0:0:00
 #SBATCH --mem=32gb
-#SBATCH --partition gpu
+#SBATCH --partition=gpu
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=br200_gpt2_arxiv
+#SBATCH --job-name=br200_gpt2_wikipedia_en
 #SBATCH --output=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.out
 #SBATCH --error=/N/scratch/hw56/ppl_nanoGPT/logs/torchrun-%j.err
 
