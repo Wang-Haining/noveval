@@ -92,7 +92,7 @@ def calculate_ppl(text: str,
         model: a nano-GPT style casual language model
         ppl_computing_method:
             `naive`: Approximate the perplexity score without a sliding window.
-            `contextualized`: Approximate the perplexity score with a sliding window: for each `block_size` chunk of
+            `long_history`: Approximate the perplexity score with a sliding window: for each `block_size` chunk of
                 text, it only returns the perplexity of the last `block_size - sliding_window_length` tokens. This
                 method favors global 'surprise' over local grammatical choice. It requires `sliding_window_length` more
                 tokens than `naive`
@@ -126,7 +126,7 @@ def calculate_ppl(text: str,
     data = np.array(encode(text))  # np.array, token ids of the whole document
 
     losses = []
-    if ppl_computing_method == 'well_contexualized':
+    if ppl_computing_method == 'long_history':
         if len(data) < sequence_length + sliding_window_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
                                f"Expect `text` length no short than "
@@ -149,6 +149,7 @@ def calculate_ppl(text: str,
                 loss_well_contextualized = [loss for idx, loss in enumerate(loss_well_contextualized) if idx not in ignore_indices]
             losses.extend(loss_well_contextualized)
 
+
     elif ppl_computing_method == 'naive':
         if len(data) < sequence_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
@@ -169,7 +170,7 @@ def calculate_ppl(text: str,
 
             if ignore_function_words:
                 ignore_indices = ignore_func_word_loss_indices(y.cpu().tolist()[0], None)
-                loss_naive = [loss for loss, idx in enumerate(loss_naive) if idx not in ignore_indices]
+                loss_naive = [loss for idx, loss in enumerate(loss_naive) if idx not in ignore_indices]
             losses.extend(loss_naive)
 
     return np.exp2(np.mean(losses))
@@ -195,7 +196,7 @@ def calculate_ppl(text: str,
 #     # ignore loss targeting function words
 #     ppl = calculate_ppl(text=text,
 #                         model=model,
-#                         ppl_computing_method='well_contexualized',
+#                         ppl_computing_method='long_history',
 #                         ignore_function_words=True,
 #                         device=device,
 #                         sequence_length=2048,
@@ -209,7 +210,7 @@ def calculate_ppl(text: str,
 #     # allow loss targeting function words
 #     ppl = calculate_ppl(text=text,
 #                         model=model,
-#                         ppl_computing_method='well_contexualized',
+#                         ppl_computing_method='long_history',
 #                         ignore_function_words=False,
 #                         device=device,
 #                         sequence_length=2048,
@@ -231,7 +232,7 @@ def calculate_ppl(text: str,
 #                         sliding_window_length=None,
 #                         random_state=0,
 #                         compile_model=True)
-#     print(ppl)  # ~9.48e+153
+#     print(ppl)  # ~4.82
 #     # calculate ppl of a document conditioned on preceding tokens within a block size, no sliding window
 #     # allow loss targeting function words
 #     ppl = calculate_ppl(text=text,
