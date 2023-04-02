@@ -27,5 +27,5 @@ weight_decay = 1e-1
 # no compile, as it is not stable
 compile = False
 
-# disable flash attention
-flash_attention = False
+# adamw eps
+eps = 1e-5
