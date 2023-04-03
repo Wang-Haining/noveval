@@ -55,5 +55,5 @@ if __name__ == '__main__':
     review_scores.update({'ttr': ttr})
 
     df = pd.DataFrame.from_dict(review_scores)
-    df.to_csv(f'./results/model={args.out_dir[4:]}method={args.ppl_computing_method}-ignore_func_words={args.ignore_function_words}.csv',
+    df.to_csv(f'./results/model={args.out_dir[4:]}-method={args.ppl_computing_method}-ignore_func_words={args.ignore_function_words}.csv',
               index=False)
