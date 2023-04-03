@@ -5,13 +5,12 @@ from model import GPTConfig, GPT
 
 import pandas as pd
 from utils import get_paper_and_score
-from calculate_ppl import calculate_ppl
-
+from utils import calculate_perplexity, calculate_type_token_ratio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Calculate perplexity score with control")
     parser.add_argument("--out_dir", default="out_wikipedia_en", type=str, help="directory a ckpt is saved")
-    parser.add_argument("--device", default="cuda:0", type=str,  help="directory a ckpt is saved")
+    parser.add_argument("--device", default="cuda:0", type=str, help="directory a ckpt is saved")
     parser.add_argument("--random_state", default=0, type=int, help="seed")
     parser.add_argument("--ppl_computing_method", default="well_contextualized",
                         choices=["long_history", "naive"])
@@ -37,19 +36,24 @@ if __name__ == '__main__':
     model.load_state_dict(state_dict)
 
     # calculate ppl
-    ppl = [calculate_ppl(text=text,
-                         model=model,
-                         ppl_computing_method=args.ppl_computing_method,
-                         ignore_function_words=args.ignore_function_words,
-                         device=args.device,
-                         sequence_length=2048,
-                         block_size=1024,
-                         sliding_window_length=512,
-                         random_state=args.random_state,
-                         compile_model=True) for text in review_scores['paper']]
+    ppl = [calculate_perplexity(text=text,
+                                model=model,
+                                ppl_computing_method=args.ppl_computing_method,
+                                ignore_function_words=args.ignore_function_words,
+                                device=args.device,
+                                sequence_length=2048,
+                                block_size=1024,
+                                sliding_window_length=512,
+                                random_state=args.random_state,
+                                compile_model=True) for text in review_scores['paper']]
 
     review_scores.update({'ppl': ppl})
 
+    ttr = [calculate_type_token_ratio(text=text,
+                                      sequence_length=2048,
+                                      random_state=args.random_state) for text in review_scores['paper']]
+    review_scores.update({'ttr': ttr})
+
     df = pd.DataFrame.from_dict(review_scores)
-    df.to_csv(f'./results/method={args.ppl_computing_method}-ignore_func_words={args.ignore_function_words}.csv',
+    df.to_csv(f'./results/model={args.out_dir[4:]}method={args.ppl_computing_method}-ignore_func_words={args.ignore_function_words}.csv',
               index=False)
