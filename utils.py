@@ -7,7 +7,7 @@ import tiktoken
 import numpy as np
 from model import GPT
 from itertools import chain
-from typing import List, Set
+from typing import List, Set, Tuple
 
 
 def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve_ordinal=True):
@@ -97,21 +97,21 @@ def encode_function_words_into_ids() -> Set[int]:
 
 
 def ignore_func_word_loss_indices(y: list[int],
-                                  context_length: [int | None]) -> list:
+                                  minimum_context_length: [int | None]) -> list:
     """
     Find the corresponding indices of function word ids in a sequence.
 
     Args:
         y: a sequence of token ids
-        context_length: refer to `context_length` of calculate_perplexity()
+        minimum_context_length: refer to `minimum_context_length` of calculate_perplexity()
     Example:
         indices = ignore_func_word_loss_indices(encode("Is my cat really cute or not?"), None)
         print(indices)  # [2, 4, 7] -> "cat" "cute" and "?"
     """
     func_ids = encode_function_words_into_ids()
 
-    if context_length:
-        y = y[context_length:]
+    if minimum_context_length:
+        y = y[minimum_context_length:]
 
     return [idx for idx, token_id in enumerate(y) if token_id not in func_ids]
 
@@ -145,42 +145,45 @@ def calculate_type_token_ratio(text: str,
 def calculate_perplexity(text: str,
                          model: GPT,
                          ppl_computing_method: str,
-                         ignore_function_words: bool,
                          device: str,
                          sequence_length: int = 2048,
                          block_size: int = 1024,
-                         context_length: [int | None] = 512,
-                         sliding_window_length: int = 512,
+                         minimum_context_length: int = 512,
+                         sampling: bool = True,
                          random_state: [None | int] = None,
-                         compile_model=False) -> np.float64:
+                         compile_model: bool = False,
+                         verbosity: bool = False) -> [np.float64 | Tuple[np.float64, List[np.float64], List[int], List[int]]]:
     """
     Calculate perplexity of a continuous sequence of tokens extracted from a given text.
-    The function finds a random chunk of `context_length+sequence_length` tokens and returns the perplexity score
+    The function finds a random chunk of `minimum_context_length+sequence_length` tokens and returns the perplexity score
      of the last `sequence_length` tokens.
 
-    Uncomment the followed section to have a working example.
+    Uncomment the commented-out to have working examples.
 
     Args:
         text: an English string longer than 2,000 words to get stable perplexity
         model: a nano-GPT style casual language model
         ppl_computing_method:
-            `naive`: Approximate the perplexity score by move a `block_size` token forward every time
-            `long_history`: Approximate the perplexity score with a sliding window of length
-                (`block_size - context_length`): for each `block_size` chunk of text, it only returns the perplexity of
-                 the last `block_size - context_length` tokens. This method favors global 'surprise' over local
-                 grammatical choice. It requires `context_length` more tokens than `naive`.
-        ignore_function_words: skip computing loss when target is a function word
+            `naive`: approximate the perplexity score by moving `block_size` tokens forward every time
+            `long_history`: approximate the perplexity score with a constraint that every nll is calcualted with a least
+                `minimum_context_length`: for each `block_size` chunk of text, it only returns the perplexity of
+                 the last `block_size - minimum_context_length` tokens. This method favors global 'surprise' over local
+                 grammatical choice. It requires `minimum_context_length` more tokens than `naive`.
         device: device used for computation; should be legal in torch.device(), e.g. "cpu", "cuda", and "cuda:1"
         sequence_length: the desired length of tokens whose perplexity score will be returned
         block_size: max sequence length of `model`
-        sliding_window_length:
-        context_length: number of preceding tokens whose loss will not be returned; ignored when
+        minimum_context_length: number of preceding tokens whose loss will not be returned; ignored when
             `ppl_computing_method` set to `naive`
+        sampling: whether subsample `sequence_length` tokens from a longer document; if set false and
+            `ppl_computing_method` is `long_history`, return perplexity after the first `minimum_context_length` tokens;
+             if set false and `ppl_computing_method` is `naive`, return perplexity from the start of the document
         random_state: supply a random number generator
         compile_model: if True, compile the PyTorch model (require PyTorch 2.0 installed)
+        verbosity: set true to return intermediate variables (x, y, and the corresponding raw losses); otherwise only
+            perplexity returned; useful for interpretation.
 
     Returns:
-        Perplexity score as a float.
+        Perplexity score as a float # todo
     """
     # prepare rng
     if random_state is None:
@@ -199,59 +202,73 @@ def calculate_perplexity(text: str,
     # prepare data
     data = np.array(encode(text))  # np.array, token ids of the whole document
 
-    # sanity check: sequence_length is expected divisible by block_size - context_length for easier computation
-    if sequence_length % (block_size - context_length):
-        raise ValueError(f'`sequence_length` {sequence_length} '
-                         f'should be divisible by `block_size - context_length` {block_size - context_length}.')
-
     losses = []
-    if ppl_computing_method == 'long_history':
-        if len(data) < sequence_length + context_length + 1:
+    xs, ys = [], []  # document for verbosity output
+    if sampling:
+        begin_loc = rng.integers(low=0, high=len(data) - sequence_length - minimum_context_length - 1)
+    else:
+        begin_loc = 0
+    if ppl_computing_method == 'long_history' and minimum_context_length:  # move (block_size - minimum_context_length) forward if possible
+        if len(data) < sequence_length + minimum_context_length + 1:
             raise ValueError(f"`text` too short ({len(data)})."
                              f"Expect `text` length no short than "
-                             f"({sequence_length + context_length + 1}) in terms of tokens.")
-        begin_loc = rng.integers(low=0, high=len(data) - sequence_length - context_length - 1)
-        begin_locs = [begin_loc + context_length * _ for _ in range(sequence_length // context_length)]
-        X = torch.stack([torch.from_numpy((data[i: i + block_size]).astype(np.int64)) for i in begin_locs])
-        Y = torch.stack([torch.from_numpy((data[i + 1: i + 1 + block_size]).astype(np.int64)) for i in begin_locs])
-        # calculate ppl of last `block_size - context_length` tokens
-        # always conditioned on at least preceding `context_length` tokens
-        for k in range(sequence_length // context_length):  # with default settings, four sequences to compute
-            x, y = X[k].view(1, -1), Y[k].view(1, -1)
+                             f"({sequence_length + minimum_context_length + 1}) in terms of tokens.")
+        total_calculated_tokens = 0
+        remaining_tokens = 0
+        max_iters = sequence_length // (block_size - minimum_context_length) if not (sequence_length % (
+                block_size - minimum_context_length)) else sequence_length // (block_size - minimum_context_length) + 1
+        begin_locs = [begin_loc + i * (block_size - minimum_context_length) for i in range(max_iters)]
+        for begin_loc_tmp in begin_locs:
+            if total_calculated_tokens + (block_size - minimum_context_length) <= sequence_length:
+                x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
+                y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
+                xs.extend(x)
+                ys.extend(y)
+                x, y = torch.from_numpy(x), torch.from_numpy(y)
+            else:
+                remaining_tokens = sequence_length - total_calculated_tokens
+                num_ignore_masks = block_size - remaining_tokens  # decide not to apply eot for now [todo]: add eot?
+                x = (data[begin_loc_tmp: begin_loc_tmp + remaining_tokens]).astype(np.int64)
+                y = (data[begin_loc_tmp + 1: begin_loc_tmp + remaining_tokens + 1]).astype(np.int64)
+                xs.extend(x)
+                ys.extend(y)
+                x = torch.cat((torch.from_numpy(x), torch.full((num_ignore_masks,), 1)), dim=0).long()  # add dummy input 1, will be ignored anyway
+                y = torch.cat((torch.from_numpy(y), torch.full((num_ignore_masks,), -1)), dim=0).long()  # ignore_index is -1
+            x, y = x.view(1, -1), y.view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
-            loss_well_contextualized = loss[
-                                       context_length:].tolist()  # take nll of tokens after the first `context_length`
-            if ignore_function_words:
-                ignore_indices = ignore_func_word_loss_indices(y.cpu().tolist()[0], context_length)
-                loss_well_contextualized = [loss for idx, loss in enumerate(loss_well_contextualized) if
-                                            idx not in ignore_indices]
-            losses.extend(loss_well_contextualized)
+            loss_long_history = loss[minimum_context_length:].tolist() if not remaining_tokens else loss[
+                                                                                            minimum_context_length:minimum_context_length + remaining_tokens].tolist()  # take nll of tokens after the first `minimum_context_length`
+            losses.extend(loss_long_history)
+            total_calculated_tokens += (block_size - minimum_context_length)
 
-    elif ppl_computing_method == 'naive':  # move `block_size` forward every time
+    if ppl_computing_method == 'naive':  # move `block_size` forward every time
         if len(data) < sequence_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
                                f"Expect `text` length no short than "
                                f"({sequence_length + 1}) in terms of tokens.")
 
-        begin_loc = rng.integers(low=0, high=len(data) - sequence_length - 1)
-        begin_locs = [begin_loc + block_size * offset for offset in range(sequence_length // block_size)]
+        begin_locs = [begin_loc + i * block_size for i in range(sequence_length // block_size)]
 
-        X = torch.stack([torch.from_numpy((data[i: i + block_size]).astype(np.int64)) for i in begin_locs])
-        Y = torch.stack([torch.from_numpy((data[i + 1: i + 1 + block_size]).astype(np.int64)) for i in begin_locs])
-
-        for k in range(sequence_length // block_size):  # with default settings, only two sequences to compute
-            x, y = X[k].view(1, -1), Y[k].view(1, -1)
+        for begin_loc_tmp in begin_locs:  # with default settings, only two sequences to compute
+            x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
+            y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
+            xs.extend(x)
+            ys.extend(y)
+            x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
             loss_naive = loss.tolist()  # take nll of all tokens
-
-            if ignore_function_words:
-                ignore_indices = ignore_func_word_loss_indices(y.cpu().tolist()[0], None)
-                loss_naive = [loss for idx, loss in enumerate(loss_naive) if idx not in ignore_indices]
             losses.extend(loss_naive)
 
-    return np.exp2(np.mean(losses))
+    if not verbosity:
+        return np.exp2(np.mean(losses))
+    if verbosity:
+        return (np.exp2(np.mean(losses)),
+                losses,
+                xs,
+                ys)
+
 
 # if __name__ == '__main__':
 #     from model import GPTConfig
@@ -272,59 +289,31 @@ def calculate_perplexity(text: str,
 #     text = " ".join(wikitext_test["text"]).replace('\n', '')
 #
 #     # calculate ppl of a document conditioned on at least 512 preceding tokens
-#     # ignore loss targeting function words
 #     ppl = calculate_perplexity(text=text,
 #                                model=model,
 #                                ppl_computing_method='long_history',
-#                                ignore_function_words=True,
 #                                device=device,
 #                                sequence_length=2048,
 #                                block_size=1024,
-#                                context_length=512,
+#                                minimum_context_length=512,
+#                                sampling=True,
 #                                random_state=0,
-#                                compile_model=True)
-#     print(ppl)  # ~4.78
-#
-#     # calculate ppl of a document conditioned on at least 512 preceding tokens
-#     # allow loss targeting function words
-#     ppl = calculate_perplexity(text=text,
-#                                model=model,
-#                                ppl_computing_method='long_history',
-#                                ignore_function_words=False,
-#                                device=device,
-#                                sequence_length=2048,
-#                                block_size=1024,
-#                                context_length=512,
-#                                random_state=0,
-#                                compile_model=True)
+#                                compile_model=True,
+#                                verbosity=False)
 #     print(ppl)  # ~7.85
 #
-#     # calculate ppl of a document conditioned on preceding tokens within a block size, no sliding window
-#     # ignore loss targeting function words
+#     # calculate ppl of a document naively by moving 1024 tokens per calculation
 #     ppl = calculate_perplexity(text=text,
 #                                model=model,
 #                                ppl_computing_method='naive',
-#                                ignore_function_words=True,
 #                                device=device,
 #                                sequence_length=2048,
 #                                block_size=1024,
-#                                context_length=None,
+#                                sampling=True,
 #                                random_state=0,
-#                                compile_model=True)
-#     print(ppl)  # ~4.82
-#     # calculate ppl of a document conditioned on preceding tokens within a block size, no sliding window
-#     # allow loss targeting function words
-#     ppl = calculate_perplexity(text=text,
-#                                model=model,
-#                                ppl_computing_method='naive',
-#                                ignore_function_words=False,
-#                                device=device,
-#                                sequence_length=2048,
-#                                block_size=1024,
-#                                context_length=None,
-#                                random_state=0,
-#                                compile_model=True)
-#     print(ppl)  # ~8.74
+#                                compile_model=True,
+#                                verbosity=False)
+#     print(ppl)  # ~7.91
 #
 #     # calculate ttr of a document by randomly samples a fixed-size of content
 #     ttr = calculate_type_token_ratio(text=text,
