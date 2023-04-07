@@ -8,15 +8,16 @@ from utils import get_paper_and_score
 from utils import calculate_perplexity, calculate_type_token_ratio
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Calculate perplexity score with control")
-    parser.add_argument("--out_dir", default="out_wikipedia_en", type=str, help="directory a ckpt is saved")
+    parser = argparse.ArgumentParser(description="Calculate perplexity score from a document")
+    parser.add_argument("--model_dir", default="out_wikipedia_en", type=str, help="directory a ckpt is saved")
     parser.add_argument("--device", default="cuda:0", type=str, help="directory a ckpt is saved")
     parser.add_argument("--random_state", default=0, type=int, help="seed")
-    parser.add_argument("--ppl_computing_method", default="well_contextualized",
+    parser.add_argument("--sequence_length", default=2048, type=int, help="num of tokens whose ppl will be returned")
+    parser.add_argument("--block_size", default=1024, type=int, help="model block_size")
+    parser.add_argument("--minimum_context_length", default=0, type=int, help="minimum num of tokens ppl "
+                                                                              "calculatiion conditioned on")
+    parser.add_argument("--computing_method", default="long_history",
                         choices=["long_history", "naive"])
-    parser.add_argument("--ignore_function_words", action="store_true",
-                        help="Ignore function words when accumulating loss")
-    parser.add_argument("--no-ignore_function_words", dest="ignore_function_words", action="store_false")
     parser.add_argument("--model_compile", action="store_true",
                         help="Compile model for efficiency, supported by pytorch 2.0")
     parser.add_argument("--no-model_compile", dest="model_compile", action="store_false")
@@ -38,22 +39,23 @@ if __name__ == '__main__':
     # calculate ppl
     ppl = [calculate_perplexity(text=text,
                                 model=model,
-                                ppl_computing_method=args.ppl_computing_method,
-                                ignore_function_words=args.ignore_function_words,
+                                computing_method=args.computing_method,
                                 device=args.device,
-                                sequence_length=2048,
-                                block_size=1024,
-                                sliding_window_length=512,
+                                sequence_length=args.sequence_length,
+                                block_size=args.block_size,
+                                minimum_context_length=args.minimum_context_length,
+                                sampling=True,
                                 random_state=args.random_state,
-                                compile_model=True) for text in review_scores['paper']]
+                                compile_model=True,
+                                verbosity=False) for text in review_scores['paper']]
 
     review_scores.update({'ppl': ppl})
 
     ttr = [calculate_type_token_ratio(text=text,
-                                      sequence_length=2048,
+                                      sequence_length=args.sequence_length,
                                       random_state=args.random_state) for text in review_scores['paper']]
     review_scores.update({'ttr': ttr})
 
     df = pd.DataFrame.from_dict(review_scores)
-    df.to_csv(f'./results/model={args.out_dir[4:]}-method={args.ppl_computing_method}-ignore_func_words={args.ignore_function_words}.csv',
+    df.to_csv(f'./results/mdl={args.out_dir[4:]}-mtd={args.computing_method}-mcl={args.minimum_context_length}.csv',
               index=False)

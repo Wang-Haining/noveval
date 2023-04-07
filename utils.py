@@ -144,7 +144,7 @@ def calculate_type_token_ratio(text: str,
 @torch.no_grad()
 def calculate_perplexity(text: str,
                          model: GPT,
-                         ppl_computing_method: str,
+                         computing_method: str,
                          device: str,
                          sequence_length: int = 2048,
                          block_size: int = 1024,
@@ -163,27 +163,27 @@ def calculate_perplexity(text: str,
     Args:
         text: an English string longer than 2,000 words to get stable perplexity
         model: a nano-GPT style casual language model
-        ppl_computing_method:
+        computing_method:
             `naive`: approximate the perplexity score by moving `block_size` tokens forward every time
-            `long_history`: approximate the perplexity score with a constraint that every nll is calcualted with a least
-                `minimum_context_length`: for each `block_size` chunk of text, it only returns the perplexity of
+            `long_history`: approximate the perplexity score with a constraint that every nll is calculated with at
+                least `minimum_context_length`: for each `block_size` chunk of text, it only returns the perplexity of
                  the last `block_size - minimum_context_length` tokens. This method favors global 'surprise' over local
                  grammatical choice. It requires `minimum_context_length` more tokens than `naive`.
         device: device used for computation; should be legal in torch.device(), e.g. "cpu", "cuda", and "cuda:1"
         sequence_length: the desired length of tokens whose perplexity score will be returned
         block_size: max sequence length of `model`
         minimum_context_length: number of preceding tokens whose loss will not be returned; ignored when
-            `ppl_computing_method` set to `naive`
+            `computing_method` set to `naive`
         sampling: whether subsample `sequence_length` tokens from a longer document; if set false and
-            `ppl_computing_method` is `long_history`, return perplexity after the first `minimum_context_length` tokens;
-             if set false and `ppl_computing_method` is `naive`, return perplexity from the start of the document
+            `computing_method` is `long_history`, return perplexity after the first `minimum_context_length` tokens;
+             if set false and `computing_method` is `naive`, return perplexity from the start of the document
         random_state: supply a random number generator
         compile_model: if True, compile the PyTorch model (require PyTorch 2.0 installed)
         verbosity: set true to return intermediate variables (x, y, and the corresponding raw losses); otherwise only
             perplexity returned; useful for interpretation.
 
     Returns:
-        Perplexity score as a float # todo
+        If `verbosity`, perplexity score as a float; otherwise return a tuple of perplexity, raw nll, x, and y labels
     """
     # prepare rng
     if random_state is None:
@@ -208,7 +208,7 @@ def calculate_perplexity(text: str,
         begin_loc = rng.integers(low=0, high=len(data) - sequence_length - minimum_context_length - 1)
     else:
         begin_loc = 0
-    if ppl_computing_method == 'long_history' and minimum_context_length:  # move (block_size - minimum_context_length) forward if possible
+    if computing_method == 'long_history' and minimum_context_length:  # move (block_size - minimum_context_length) forward if possible
         if len(data) < sequence_length + minimum_context_length + 1:
             raise ValueError(f"`text` too short ({len(data)})."
                              f"Expect `text` length no short than "
@@ -242,7 +242,7 @@ def calculate_perplexity(text: str,
             losses.extend(loss_long_history)
             total_calculated_tokens += (block_size - minimum_context_length)
 
-    if ppl_computing_method == 'naive':  # move `block_size` forward every time
+    if computing_method == 'naive':  # move `block_size` forward every time
         if len(data) < sequence_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
                                f"Expect `text` length no short than "
@@ -291,7 +291,7 @@ def calculate_perplexity(text: str,
 #     # calculate ppl of a document conditioned on at least 512 preceding tokens
 #     ppl = calculate_perplexity(text=text,
 #                                model=model,
-#                                ppl_computing_method='long_history',
+#                                computing_method='long_history',
 #                                device=device,
 #                                sequence_length=2048,
 #                                block_size=1024,
@@ -305,7 +305,7 @@ def calculate_perplexity(text: str,
 #     # calculate ppl of a document naively by moving 1024 tokens per calculation
 #     ppl = calculate_perplexity(text=text,
 #                                model=model,
-#                                ppl_computing_method='naive',
+#                                computing_method='naive',
 #                                device=device,
 #                                sequence_length=2048,
 #                                block_size=1024,
