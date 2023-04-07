@@ -14,8 +14,8 @@ if __name__ == '__main__':
     parser.add_argument("--random_state", default=0, type=int, help="seed")
     parser.add_argument("--sequence_length", default=2048, type=int, help="num of tokens whose ppl will be returned")
     parser.add_argument("--block_size", default=1024, type=int, help="model block_size")
-    parser.add_argument("--minimum_context_length", default=0, type=int, help="minimum num of tokens ppl "
-                                                                              "calculatiion conditioned on")
+    parser.add_argument("--minimum_context_length", default=0, type=int, help="minimum num of tokens each token's ppl "
+                                                                              "calculation have to condition on")
     parser.add_argument("--computing_method", default="long_history",
                         choices=["long_history", "naive"])
     parser.add_argument("--model_compile", action="store_true",
@@ -28,8 +28,7 @@ if __name__ == '__main__':
     review_scores = get_paper_and_score(corpus_path="./PeerRead/data/acl_2017/", preserve_ordinal=True)
 
     # load model
-    out_dir = args.out_dir
-    ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+    ckpt_path = os.path.join(args.model_dir, 'ckpt.pt')
     checkpoint = torch.load(ckpt_path, map_location=args.device)
     gptconf = GPTConfig(**checkpoint['model_args'])
     model = GPT(gptconf)
