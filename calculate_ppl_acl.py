@@ -14,8 +14,9 @@ if __name__ == '__main__':
     parser.add_argument("--random_state", default=0, type=int, help="seed")
     parser.add_argument("--sequence_length", default=2048, type=int, help="num of tokens whose ppl will be returned")
     parser.add_argument("--block_size", default=1024, type=int, help="model block_size")
-    parser.add_argument("--minimum_context_length", default=512, type=int, help="minimum num of tokens each token's ppl "
-                                                                              "calculation have to condition on")
+    parser.add_argument("--minimum_context_length", default=512, type=int,
+                        help="minimum num of tokens each token's ppl "
+                             "calculation have to condition on")
     parser.add_argument("--computing_method", default="long_history",
                         choices=["long_history", "naive"])
     parser.add_argument("--model_compile", action="store_true",
@@ -56,5 +57,10 @@ if __name__ == '__main__':
     review_scores.update({'ttr': ttr})
 
     df = pd.DataFrame.from_dict(review_scores)
-    df.to_csv(f'./results/mdl={args.model_dir[4:]}-mtd={args.computing_method}-mcl={args.minimum_context_length}.csv',
-              index=False)
+    if args.computing_method == 'long_history':
+        df.to_csv(
+            f'./results/mdl={args.model_dir[4:]}-mtd={args.computing_method}-mcl={args.minimum_context_length}.csv',
+            index=False)
+    else:
+        df.to_csv(f'./results/mdl={args.model_dir[4:]}-mtd={args.computing_method}.csv',
+                  index=False)
