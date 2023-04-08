@@ -152,7 +152,8 @@ def calculate_perplexity(text: str,
                          sampling: bool = True,
                          random_state: [None | int] = None,
                          compile_model: bool = False,
-                         verbosity: bool = False) -> [np.float64 | Tuple[np.float64, List[np.float64], List[int], List[int]]]:
+                         verbosity: bool = False) -> [
+    np.float64 | Tuple[np.float64, List[np.float64], List[int], List[int]]]:
     """
     Calculate perplexity of a continuous sequence of tokens extracted from a given text.
     The function finds a random chunk of `minimum_context_length+sequence_length` tokens and returns the perplexity score
@@ -232,13 +233,15 @@ def calculate_perplexity(text: str,
                 y = (data[begin_loc_tmp + 1: begin_loc_tmp + remaining_tokens + 1]).astype(np.int64)
                 xs.extend(x)
                 ys.extend(y)
-                x = torch.cat((torch.from_numpy(x), torch.full((num_ignore_masks,), 1)), dim=0).long()  # add dummy input 1, will be ignored anyway
-                y = torch.cat((torch.from_numpy(y), torch.full((num_ignore_masks,), -1)), dim=0).long()  # ignore_index is -1
+                x = torch.cat((torch.from_numpy(x), torch.full((num_ignore_masks,), 1)),
+                              dim=0).long()  # add dummy input 1, will be ignored anyway
+                y = torch.cat((torch.from_numpy(y), torch.full((num_ignore_masks,), -1)),
+                              dim=0).long()  # ignore_index is -1
             x, y = x.view(1, -1), y.view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
             loss_long_history = loss[minimum_context_length:].tolist() if not remaining_tokens else loss[
-                                                                                            minimum_context_length:minimum_context_length + remaining_tokens].tolist()  # take nll of tokens after the first `minimum_context_length`
+                                                                                                    minimum_context_length:minimum_context_length + remaining_tokens].tolist()  # take nll of tokens after the first `minimum_context_length`
             losses.extend(loss_long_history)
             total_calculated_tokens += (block_size - minimum_context_length)
 
@@ -261,6 +264,9 @@ def calculate_perplexity(text: str,
             loss_naive = loss.tolist()  # take nll of all tokens
             losses.extend(loss_naive)
 
+    # convert logrithm base from e to 2
+    # as suggested by https://thegradient.pub/understanding-evaluation-metrics-for-language-models/
+    losses = [loss/np.log(2) for loss in losses]
     if not verbosity:
         return np.exp2(np.mean(losses))
     if verbosity:
@@ -300,6 +306,19 @@ def calculate_perplexity(text: str,
 #                                random_state=0,
 #                                compile_model=True,
 #                                verbosity=False)
+#     print(ppl)  # ~7.85
+#     # calculate ppl of a document conditioned on at least 512 preceding tokens, with verbosity turned on
+#     ppl, loss, x, y = calculate_perplexity(text=text,
+#                                            model=model,
+#                                            computing_method='long_history',
+#                                            device=device,
+#                                            sequence_length=2048,
+#                                            block_size=1024,
+#                                            minimum_context_length=512,
+#                                            sampling=True,
+#                                            random_state=0,
+#                                            compile_model=True,
+#                                            verbosity=True)
 #     print(ppl)  # ~7.85
 #
 #     # calculate ppl of a document naively by moving 1024 tokens per calculation
