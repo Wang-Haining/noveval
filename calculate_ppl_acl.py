@@ -5,7 +5,7 @@ from model import GPTConfig, GPT
 
 import pandas as pd
 from utils import get_paper_and_score
-from utils import calculate_perplexity, calculate_type_token_ratio
+from utils import calculate_perplexity
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="calculate perplexity score from a document")
@@ -41,27 +41,26 @@ if __name__ == '__main__':
     model.load_state_dict(state_dict)
 
     # calculate ppl
-    ppl, cross_entropy, text = zip(*[calculate_perplexity(text=text,
-                                                          model=model,
-                                                          computing_method=args.computing_method,
-                                                          device=args.device,
-                                                          sequence_length=args.sequence_length,
-                                                          block_size=args.block_size,
-                                                          minimum_context_length=args.minimum_context_length,
-                                                          add_initial_eot=args.add_initial_eot,
-                                                          sampling=True,
-                                                          random_state=args.random_state,
-                                                          compile_model=True,
-                                                          verbosity=True) for text in review_scores['paper']])
+    ppl, cross_entropy, ids, text = zip(*[calculate_perplexity(text=text,
+                                                               model=model,
+                                                               computing_method=args.computing_method,
+                                                               device=args.device,
+                                                               sequence_length=args.sequence_length,
+                                                               block_size=args.block_size,
+                                                               minimum_context_length=args.minimum_context_length,
+                                                               add_initial_eot=args.add_initial_eot,
+                                                               sampling=True,
+                                                               random_state=args.random_state,
+                                                               compile_model=True,
+                                                               verbosity=True) for text in review_scores['paper']])
 
     review_scores.update({'ppl': ppl})
     review_scores.update({'cross_entropy': cross_entropy})
+    review_scores.update({'ids': ids})
     review_scores.update({'text': text})
 
     # reuse `text` sampled in ppl calculation for ttr
-    ttr = [calculate_type_token_ratio(text=t,
-                                      sampling=False,
-                                      sequence_length=args.sequence_length) for t in text]
+    ttr = [len(set(i))/len(i) for i in ids]
     review_scores.update({'ttr': ttr})
 
     df = pd.DataFrame.from_dict(review_scores)

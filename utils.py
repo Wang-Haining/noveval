@@ -11,9 +11,10 @@ from typing import List, Set, Tuple
 
 
 def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve_ordinal=True):
-    aspects = [
-        'SUBSTANCE', 'APPROPRIATENESS', 'SOUNDNESS_CORRECTNESS', 'ORIGINALITY', 'RECOMMENDATION', 'CLARITY',
-        'REVIEWER_CONFIDENCE']
+    """
+    Read in papers and ratings on originality from ACL subset of PeerRead.
+    """
+    aspects = ['ORIGINALITY']
 
     def round_up(mean_score: float):
         return int(math.ceil(mean_score - 0.5))
@@ -37,8 +38,8 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
         paper = json.load(open(f, 'r'))
         papers.append(paper)
 
-    text_dict = [{int(paper['name'].split('.pdf')[0]): re.sub(r"\n\d+", "", "\n\n".join(
-        [d['text'] for d in paper['metadata']['sections']])).replace("1 000\n\n", '')} for paper in papers]
+    text_dict = [{int(paper['name'].split('.pdf')[0]): clean_up_artifacts("\n\n".join(
+        [d['text'] for d in paper['metadata']['sections']]))} for paper in papers]
     text_sorted_list = [list(d.values())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
     text_check_list = [list(d.keys())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
 
@@ -80,6 +81,18 @@ def decode(ids: List[int]) -> str:
     enc = tiktoken.get_encoding("gpt2")
 
     return enc.decode(ids)
+
+
+def clean_up_artifacts(text_from_parsed_pdf):
+    """
+    Clean up artifacts common seen in parsed-pdfs.
+    """
+    text = re.sub(r"\n\d+", "", text_from_parsed_pdf)
+    text = text.replace("1 000\n\n", '')
+    text = text.replace("1 000\n", '')
+    text = re.sub(r'\"{10,}', "", text)
+
+    return text
 
 
 def encode_function_words_into_ids() -> Set[int]:
@@ -125,34 +138,39 @@ def ignore_func_word_loss_indices(y: list[int],
     return [idx for idx, token_id in enumerate(y) if token_id not in func_ids]
 
 
-def calculate_type_token_ratio(text: str,
-                               sampling: bool = True,
-                               sequence_length: int = 2048,
-                               random_state: [None | int] = None) -> float:
-    """
-    Compute type-token ratio (TTR) of a document.
-    TTR "refers to the ratio of different unique word stems (types) to the total number of words (tokens)", as per
-    Wikipedia.
-    """
-    if sampling:
-        # prepare rng
-        if random_state is None:
-            random_state = np.random.randint(np.iinfo(np.int32).max)
-        else:
-            if not 0 <= random_state <= np.iinfo(np.int32).max:
-                raise ValueError(f"Expect int >= 0 for `random_state`, but got {random_state}.")
-        rng = np.random.default_rng(random_state)
-
-        # prepare data
-        data = np.array(encode(text))  # np.array, token ids of the whole document
-
-        begin_loc = rng.integers(low=0, high=len(data) - sequence_length)
-        x = data[begin_loc: begin_loc + sequence_length]
-    else:
-        x = encode(text)
-        if not len(encode(text)) == sequence_length:
-            raise ValueError(f'Without sampling, expect input length of {sequence_length=}, but got {len(x)}.')
-    return len(set(x)) / len(x)
+# def calculate_type_token_ratio(text: str,
+#                                sampling: bool = True,
+#                                sequence_length: int = 2048,
+#                                random_state: [None | int] = None) -> float:
+#     """
+#     Compute type-token ratio (TTR) of a document.
+#     TTR "refers to the ratio of different unique word stems (types) to the total number of words (tokens)", as per
+#     Wikipedia.
+#     """
+#     if sampling:
+#         # prepare rng
+#         if random_state is None:
+#             random_state = np.random.randint(np.iinfo(np.int32).max)
+#         else:
+#             if not 0 <= random_state <= np.iinfo(np.int32).max:
+#                 raise ValueError(f"Expect int >= 0 for `random_state`, but got {random_state}.")
+#         rng = np.random.default_rng(random_state)
+#
+#         # prepare data
+#         data = np.array(encode(text))  # np.array, token ids of the whole document
+#
+#         begin_loc = rng.integers(low=0, high=len(data) - sequence_length)
+#         x = data[begin_loc: begin_loc + sequence_length]
+#     else:
+#         x = encode(text)  # decode and encode can be fuzzy, so leave a safe margin
+#         if not (sequence_length - 2 <= len(x) <= sequence_length + 2):
+#             print(f"{text=}")
+#             print(f"{decode(encode(text))}")
+#             print(f"{x=}")
+#             raise ValueError(f'Without sampling, expect input length of {sequence_length=}, but got {len(x)}.')
+#         if not len(x) == sequence_length:
+#             print(f"Input ({len(x)=}) and {sequence_length=} not match exactly.")
+#     return len(set(x)) / len(x)
 
 
 @torch.no_grad()
@@ -168,7 +186,7 @@ def calculate_perplexity(text: str,
                          random_state: [None | int] = None,
                          compile_model: bool = False,
                          verbosity: bool = False) -> [np.float64 |
-                                                      Tuple[np.float64, List[np.float64], str]]:
+                                                      Tuple[np.float64, List[np.float64], list, str]]:
     """
     Calculate perplexity of a continuous sequence of tokens extracted from a given text.
     The function finds a random chunk of `minimum_context_length + sequence_length` tokens and returns the perplexity
@@ -287,18 +305,21 @@ def calculate_perplexity(text: str,
         for begin_loc_tmp in begin_locs:  # with default settings, only two sequences to compute
             x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
             y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
-            xs.extend(x)
+            xs.extend(x.tolist())
             x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
             loss_naive = loss.tolist()  # take nll of all tokens
             losses.extend(loss_naive)
 
+    if not len(xs) == sequence_length:
+        raise ValueError(f"Output length ({len(xs)}) does not match {sequence_length}.")
     if not verbosity:
         return np.exp(np.mean(losses))
     if verbosity:
         return (np.exp(np.mean(losses)),
                 [loss / np.log(2) for loss in losses],  # report 2-based cross-entropy
+                xs,
                 decode(xs))
 
 # if __name__ == '__main__':
