@@ -73,6 +73,15 @@ def encode(text: str) -> List[int]:
     return enc.encode(text, allowed_special={"<|endoftext|>"})
 
 
+def decode(ids: List[int]) -> str:
+    """
+    Decode ids into a document.
+    """
+    enc = tiktoken.get_encoding("gpt2")
+
+    return enc.decode(ids)
+
+
 def encode_function_words_into_ids() -> Set[int]:
     """
     Covert 512 function words into ids found in `titoken`'s encoding.
@@ -117,6 +126,7 @@ def ignore_func_word_loss_indices(y: list[int],
 
 
 def calculate_type_token_ratio(text: str,
+                               sampling: bool = True,
                                sequence_length: int = 2048,
                                random_state: [None | int] = None) -> float:
     """
@@ -124,20 +134,24 @@ def calculate_type_token_ratio(text: str,
     TTR "refers to the ratio of different unique word stems (types) to the total number of words (tokens)", as per
     Wikipedia.
     """
-    # prepare rng
-    if random_state is None:
-        random_state = np.random.randint(np.iinfo(np.int32).max)
+    if sampling:
+        # prepare rng
+        if random_state is None:
+            random_state = np.random.randint(np.iinfo(np.int32).max)
+        else:
+            if not 0 <= random_state <= np.iinfo(np.int32).max:
+                raise ValueError(f"Expect int >= 0 for `random_state`, but got {random_state}.")
+        rng = np.random.default_rng(random_state)
+
+        # prepare data
+        data = np.array(encode(text))  # np.array, token ids of the whole document
+
+        begin_loc = rng.integers(low=0, high=len(data) - sequence_length)
+        x = data[begin_loc: begin_loc + sequence_length]
     else:
-        if not 0 <= random_state <= np.iinfo(np.int32).max:
-            raise ValueError(f"Expect int >= 0 for `random_state`, but got {random_state}.")
-    rng = np.random.default_rng(random_state)
-
-    # prepare data
-    data = np.array(encode(text))  # np.array, token ids of the whole document
-
-    begin_loc = rng.integers(low=0, high=len(data) - sequence_length)
-    x = data[begin_loc: begin_loc + sequence_length]
-
+        x = encode(text)
+        if not len(encode(text)) == sequence_length:
+            raise ValueError(f'Without sampling, expect input length of {sequence_length=}, but got {len(x)}.')
     return len(set(x)) / len(x)
 
 
@@ -149,17 +163,24 @@ def calculate_perplexity(text: str,
                          sequence_length: int = 2048,
                          block_size: int = 1024,
                          minimum_context_length: int = 512,
+                         add_initial_eot: bool = True,
                          sampling: bool = True,
                          random_state: [None | int] = None,
                          compile_model: bool = False,
-                         verbosity: bool = False) -> [
-    np.float64 | Tuple[np.float64, List[np.float64], List[int], List[int]]]:
+                         verbosity: bool = False) -> [np.float64 |
+                                                      Tuple[np.float64, List[np.float64], str]]:
     """
     Calculate perplexity of a continuous sequence of tokens extracted from a given text.
-    The function finds a random chunk of `minimum_context_length+sequence_length` tokens and returns the perplexity score
-     of the last `sequence_length` tokens.
+    The function finds a random chunk of `minimum_context_length + sequence_length` tokens and returns the perplexity
+    score of the last `sequence_length` tokens.
 
-    Uncomment the commented-out to have working examples.
+    Uncomment the commented-out to have examples.
+    Implementation follows code and advices from
+        - https://huggingface.co/docs/transformers/perplexity
+        - https://huggingface.co/spaces/evaluate-measurement/perplexity/blob/ac4135177bfee71b1efd7bd3aff62e456e30aef9/\
+            perplexity.py
+        - https://thegradient.pub/understanding-evaluation-metrics-for-language-models/
+
 
     Args:
         text: an English string longer than 2,000 words to get stable perplexity
@@ -175,6 +196,7 @@ def calculate_perplexity(text: str,
         block_size: max sequence length of `model`
         minimum_context_length: number of preceding tokens whose loss will not be returned; ignored when
             `computing_method` set to `naive`
+        add_initial_eot: whether include the eot token `<|endoftext|>` in the very beginning.
         sampling: whether subsample `sequence_length` tokens from a longer document; if set false and
             `computing_method` is `long_history`, return perplexity after the first `minimum_context_length` tokens;
              if set false and `computing_method` is `naive`, return perplexity from the start of the document
@@ -184,7 +206,8 @@ def calculate_perplexity(text: str,
             perplexity returned; useful for interpretation.
 
     Returns:
-        If `verbosity`, perplexity score as a float; otherwise return a tuple of perplexity, raw nll, x, and y labels
+        If `verbosity`, perplexity score as a float; otherwise return a tuple of perplexity, raw 2-based cross entropy,
+         and string used for computation
     """
     # prepare rng
     if random_state is None:
@@ -201,15 +224,20 @@ def calculate_perplexity(text: str,
     model.eval()
 
     # prepare data
-    data = np.array(encode(text))  # np.array, token ids of the whole document
+    if add_initial_eot:
+        # token ids of the whole document starting with eot
+        data = np.array(encode("<|endoftext|>" + text))  # note "<|endoftext|>" id 50256
+    else:
+        data = np.array(encode(text))  # token ids of the whole document
 
     losses = []
-    xs, ys = [], []  # document for verbosity output
+    xs = []  # document for verbosity output
     if sampling:
         begin_loc = rng.integers(low=0, high=len(data) - sequence_length - minimum_context_length - 1)
     else:
         begin_loc = 0
-    if computing_method == 'long_history' and minimum_context_length:  # move (block_size - minimum_context_length) forward if possible
+    # move (block_size - minimum_context_length) forward every time, if possible
+    if computing_method == 'long_history' and minimum_context_length:
         if len(data) < sequence_length + minimum_context_length + 1:
             raise ValueError(f"`text` too short ({len(data)})."
                              f"Expect `text` length no short than "
@@ -223,16 +251,14 @@ def calculate_perplexity(text: str,
             if total_calculated_tokens + (block_size - minimum_context_length) <= sequence_length:
                 x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
                 y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
-                xs.extend(x)
-                ys.extend(y)
+                # xs.extend(x)
                 x, y = torch.from_numpy(x), torch.from_numpy(y)
             else:
                 remaining_tokens = sequence_length - total_calculated_tokens
-                num_ignore_masks = block_size - remaining_tokens  # decide not to apply eot for now [todo]: add eot?
+                num_ignore_masks = block_size - remaining_tokens
                 x = (data[begin_loc_tmp: begin_loc_tmp + remaining_tokens]).astype(np.int64)
                 y = (data[begin_loc_tmp + 1: begin_loc_tmp + remaining_tokens + 1]).astype(np.int64)
-                xs.extend(x)
-                ys.extend(y)
+                # xs.extend(x)
                 x = torch.cat((torch.from_numpy(x), torch.full((num_ignore_masks,), 1)),
                               dim=0).long()  # add dummy input 1, will be ignored anyway
                 y = torch.cat((torch.from_numpy(y), torch.full((num_ignore_masks,), -1)),
@@ -240,12 +266,17 @@ def calculate_perplexity(text: str,
             x, y = x.view(1, -1), y.view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
-            loss_long_history = loss[minimum_context_length:].tolist() if not remaining_tokens else loss[
-                                                                                                    minimum_context_length:minimum_context_length + remaining_tokens].tolist()  # take nll of tokens after the first `minimum_context_length`
-            losses.extend(loss_long_history)
+            # take nll of tokens after the first `minimum_context_length`
+            reserve_idx = np.arange(minimum_context_length, block_size
+                                    ) if not remaining_tokens else np.arange(
+                minimum_context_length, minimum_context_length + remaining_tokens)
+            loss_long_history = loss[reserve_idx]
+            xs.extend(x.cpu().numpy()[0][reserve_idx].tolist())
+            losses.extend(loss_long_history.tolist())
             total_calculated_tokens += (block_size - minimum_context_length)
 
-    if computing_method == 'naive':  # move `block_size` forward every time
+    # move `block_size` forward every time
+    if computing_method == 'naive':
         if len(data) < sequence_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
                                f"Expect `text` length no short than "
@@ -257,24 +288,18 @@ def calculate_perplexity(text: str,
             x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
             y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
             xs.extend(x)
-            ys.extend(y)
             x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
             _, loss = model.forward_reduction_none(x.to(device), y.to(device))
             loss = loss.cpu()
             loss_naive = loss.tolist()  # take nll of all tokens
             losses.extend(loss_naive)
 
-    # convert logrithm base from e to 2
-    # as suggested by https://thegradient.pub/understanding-evaluation-metrics-for-language-models/
-    losses = [loss/np.log(2) for loss in losses]
     if not verbosity:
-        return np.exp2(np.mean(losses))
+        return np.exp(np.mean(losses))
     if verbosity:
-        return (np.exp2(np.mean(losses)),
-                losses,
-                xs,
-                ys)
-
+        return (np.exp(np.mean(losses)),
+                [loss / np.log(2) for loss in losses],  # report 2-based cross-entropy
+                decode(xs))
 
 # if __name__ == '__main__':
 #     from model import GPTConfig
