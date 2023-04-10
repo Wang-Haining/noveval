@@ -88,7 +88,7 @@ def decode(ids: List[int]) -> str:
 
 def clean_up_artifacts(text_from_parsed_pdf):
     """
-    Clean up artifacts common seen in parsed-pdfs.
+    Clean up obvious artifacts seen in the parsed pdfs.
     """
     text = re.sub(r"\n\d+", "", text_from_parsed_pdf)
     text = text.replace("1 000\n\n", '')
