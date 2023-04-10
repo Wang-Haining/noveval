@@ -40,8 +40,10 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
 
     text_dict = [{int(paper['name'].split('.pdf')[0]): clean_up_artifacts("\n\n".join(
         [d['text'] for d in paper['metadata']['sections']]))} for paper in papers]
+    title_dict = [{int(paper['name'].split('.pdf')[0]): paper['metadata']['title']} for paper in papers]
     text_sorted_list = [list(d.values())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
     text_check_list = [list(d.keys())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])]
+    title_sorted_list = [list(d.values())[0] for d in sorted(title_dict, key=lambda x: list(x.keys())[0])]
 
     # get review scores
     reviews = []
@@ -61,6 +63,7 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
 
     # merge text and score
     review_scores.update({'paper': text_sorted_list})
+    review_scores.update({'title': title_sorted_list})
 
     return review_scores
 
