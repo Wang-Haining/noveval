@@ -1,6 +1,7 @@
 
 
 # PPL
+The repository accompanies the paper titled *A Measure of Scientific Originality via Artificial Intelligence*. The repository is subject to further maintenance and organization.
 
 ## Venv setup
 ```bash
@@ -28,7 +29,7 @@ python3 -m pip freeze > requirements.txt
 ```
 
 
-
+<!-- 
 # nanoGPT
 
 ![nanoGPT](assets/nanogpt.jpg)
@@ -245,4 +246,4 @@ For more questions/discussions feel free to stop by **#nanoGPT** on Discord:
 
 ## acknowledgements
 
-All nanoGPT experiments are powered by GPUs on [Lambda labs](https://lambdalabs.com), my favorite Cloud GPU provider. Thank you Lambda labs for sponsoring nanoGPT!
+All nanoGPT experiments are powered by GPUs on [Lambda labs](https://lambdalabs.com), my favorite Cloud GPU provider. Thank you Lambda labs for sponsoring nanoGPT! -->
