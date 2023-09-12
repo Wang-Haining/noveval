@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AutoPeer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            background: linear-gradient(90deg, #FF9A8C 0%, #FF6A88 99%); /* Gradient background for main title */
+            color: #fff; /* White text for better visibility against gradient */
+            padding: 20px 0;
+            text-align: center;
+            margin: 0;
+            position: fixed; /* This will fix the title at the top */
+            width: 100%; /* Ensure it spans the full width of the viewport */
+            top: 0; /* Position it at the top */
+            z-index: 1000; /* Ensure it stays above other elements */
+        }
+
+        h2.subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            font-weight: bold;
+            font-size: 20px;
+            margin-top: 100px; /* Added margin to account for the fixed title */
+            margin-bottom: 20px;
+        }
+
+        .description, .results {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .author-section {
+            background: linear-gradient(90deg, #FF9A8C 0%, #FF6A88 99%); /* Gradient background for author section */
+            color: #fff; /* White text for better visibility against gradient */
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        form {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        textarea {
+            width: 95%;
+            height: 150px;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 40px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+
+        .input-group {
+            position: relative; /* This will allow absolute positioning of child elements */
+            width: 100%;
+            display: flex; /* Use flexbox */
+            flex-direction: column; /* Stack children vertically */
+            align-items: center; /* Center children horizontally */
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center the child elements horizontally */
+        }
+
+        #tokenCount {
+            font-size: 14px; /* Smaller font for token count */
+            position: absolute; /* Position it absolutely within the .input-group */
+            bottom: 10px; /* Position it 10px from the bottom of the .input-group */
+            right: 20px; /* Position it 20px from the right of the .input-group */
+        }
+
+        form {
+            padding-bottom: 40px; /* Increase bottom padding to account for token count */
+        }
+
+        input[type="submit"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #2980b9;
+        }
+
+        p {
+            font-size: 18px;
+            margin-left: 10px;
+        }
+
+        #submitButton[disabled] {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .colorized-text {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>AutoPeer</h1>
+    <h2 class="subtitle">Automatically Evaluating Scientific Novelty in Alignment with Human Assessments</h2>
+
+    <div class="description">
+        <p>
+        AutoPeer has been proven capable of assessing scientific papers in a manner that significantly correlates with
+            human experts (see <a href="https://drive.google.com/file/d/1vhRhTGRsm47hFdYKnNYz2bYQ6FCRhYuR/view?usp=sharing" target="_blank">our paper</a>).
+            Please paste the paper whose novelty you'd like to examine into the box.
+            Note that the text should be longer than 2,560 tokens (~2,000 words).
+        </p>
+    </div>
+
+    <form action="/" method="post">
+        <div class="input-group">
+            <textarea id="inputText" name="user_input" placeholder="Paste paper here">{{ user_input }}</textarea>
+            <p id="tokenCount">Token count: 0</p>
+            <input type="submit" value="Evaluate Novelty" id="submitButton" disabled>
+        </div>
+    </form>
+
+    {% if results %}
+        <div class="results">
+            <h2>Results</h2>
+            <p><strong>Perplexity:</strong> {{ results.ppl }}</p>
+            <div class="colorized-text">{{ results.colorized_text|safe }}</div>
+        </div>
+    {% endif %}
+
+    <div class="description">
+        <p>
+            The perplexity score for a sequence of 2,048 tokens is calculated and visualized. The deeper the shade, the
+            greater the "surprise" a GPT-2 trained on the Wikipedia (English) corpus would experience.
+            Hover over the tokens to view the surprisal value for each token.
+        </p>
+        <p>
+            AutoPeer serves as a useful tool for gaining insights into the novelty of scientific discourse.
+            However, like all tools, it's essential to use it judiciously, taking into account its strengths and limitations.
+        </p>
+        <p>
+            Suggestions are always welcome! Feel free to contact <a href="mailto:hw56@indiana.edu">us</a>.
+        </p>
+    </div>
+
+    <div class="author-section">
+        <p>
+            Brought to you by <a href="https://hainingwang.org" target="_blank"><strong>Haining Wang</strong></a> from Indiana University Bloomington under 0BSD license (Version: 0.1.0.rc1).
+        </p>
+    </div>
+
+    <script>
+        const inputText = document.getElementById('inputText');
+        const tokenCountElement = document.getElementById('tokenCount');
+        const submitButton = document.getElementById('submitButton');
+
+        function updateTokenCount() {
+            fetch('/get_token_count', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'text=' + encodeURIComponent(inputText.value)
+            })
+            .then(response => response.json())
+            .then(data => {
+                const numTokens = data.token_count;
+                tokenCountElement.textContent = 'Token count: ' + numTokens;
+
+                if (numTokens >= 2560) {
+                    submitButton.disabled = false;
+                } else {
+                    submitButton.disabled = true;
+                }
+            });
+        }
+
+        inputText.addEventListener('input', updateTokenCount);
+
+        // Call the function initially to set the token count on page load
+        updateTokenCount();
+            // JavaScript to apply the gradient color based on the current day
+
+        // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
+        const dayOfWeek = new Date().getDay();
+
+        // Define the gradient colors for each day
+        // source: https://infogram.com/blog/beautiful-color-gradients-with-examples/
+        const gradients = [
+            "linear-gradient(90deg, #6D53DC 0%, #DB8282 99%)", // Sunday
+            "linear-gradient(90deg, #DC5356 0%, #6D53DC 99%)",  // Monday
+            "linear-gradient(90deg, #04616E 0%, #B7D7C9 99%)", // Thursday
+            "linear-gradient(90deg, #D9B967 0%, #8EC3A7 99%)", // Wednesday
+            "linear-gradient(90deg, #292424 0%, #AA8DCB 99%)", // Tuesday
+            "linear-gradient(90deg, #F08686 0%, #9CC495 99%)", // Friday
+            "linear-gradient(90deg, #539566 0%, #72A5C2 99%)" // Saturday
+        ];
+
+        // Apply the gradient color to the main title and author section
+        document.querySelector('h1').style.background = gradients[dayOfWeek];
+        document.querySelector('.author-section').style.background = gradients[dayOfWeek];
+    </script>
+
+</body>
+</html>
