@@ -4,10 +4,12 @@ import math
 import json
 import torch
 import tiktoken
+import matplotlib
 import numpy as np
 from model import GPT
 from itertools import chain
 from typing import List, Set, Tuple
+from sklearn.preprocessing import MinMaxScaler
 
 
 def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve_ordinal=True):
@@ -251,6 +253,11 @@ def calculate_perplexity(text: str,
     else:
         data = np.array(encode(text))  # token ids of the whole document
 
+    # sanity check
+    data_length = len(data)
+    if data_length <= sequence_length + minimum_context_length:
+        raise ValueError("Data length is too short for the given sequence and context lengths.")
+
     losses = []
     xs = []  # document for verbosity output
     if sampling:
@@ -324,6 +331,50 @@ def calculate_perplexity(text: str,
                 [loss / np.log(2) for loss in losses],  # report 2-based cross-entropy
                 xs,
                 decode(xs))
+
+
+def decode_ids_for_visualization(ids: List[int]) -> List[str]:
+    """
+    Decode a list of token ids into their corresponding string representations for visualization purposes.
+
+    Args:
+        ids: A list of token ids to be decoded.
+
+    Returns:
+        A list of strings corresponding to the decoded token ids.
+    """
+
+    enc = tiktoken.get_encoding("gpt2")
+    return [enc.decode_single_token_bytes(t_id).decode("utf-8", errors='replace') for t_id in ids]
+
+
+def colorize_text(words: List[str], cross_entropy: List[float]) -> str:
+    """
+    Colorize a list of words based on their cross-entropy values using a colormap.
+
+    This function takes in a list of words and their corresponding cross-entropy values.
+    The cross-entropy values are first scaled to lie between 0 and 1 using the MinMaxScaler.
+    Each word is then colorized based on its scaled cross-entropy value using the specified colormap.
+    The resulting colorized words are combined into a single string, with each word wrapped in a span
+    with the appropriate background color.
+
+    Args:
+        words: A list of words to be colorized.
+        cross_entropy: A list of cross-entropy values corresponding to each word.
+
+    Returns:
+        A string with each word from the input list colorized based on its scaled cross-entropy value.
+    """
+    minmax = MinMaxScaler()
+    cmap = matplotlib.cm.Blues
+    color_array = minmax.fit_transform(np.array(cross_entropy).reshape(-1, 1))
+    template = '<span class="barcode" title="Cross Entropy: {:.2f}" style="color: black; background-color: {}">{}</span>'
+    colored_string = ''
+    for word, color, ce in zip(words, color_array, cross_entropy):
+        color = matplotlib.colors.rgb2hex(cmap(color)[:3])
+        colored_string += template.format(ce, color, word)
+    return "[...]" + colored_string + "[...]"
+
 
 # if __name__ == '__main__':
 #     from model import GPTConfig
