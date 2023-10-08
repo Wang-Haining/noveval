@@ -366,7 +366,7 @@ def colorize_text(words: List[str], cross_entropy: List[float]) -> str:
         A string with each word from the input list colorized based on its scaled cross-entropy value.
     """
     minmax = MinMaxScaler()
-    cmap = matplotlib.cm.Blues
+    cmap = matplotlib.cm.viridis  # matplotlib.cm.Blues
     color_array = minmax.fit_transform(np.array(cross_entropy).reshape(-1, 1))
     template = '<span class="barcode" title="Cross Entropy: {:.2f}" style="color: black; background-color: {}">{}</span>'
     colored_string = ''
