@@ -367,9 +367,9 @@ def colorize_text(words: List[str], cross_entropy: List[float]) -> str:
         A string with each word from the input list colorized based on its scaled cross-entropy value.
     """
     minmax = MinMaxScaler()
-    magma_r = plt.cm.get_cmap('magma_r', 256)  # magma reverse colormap
-    new_magma = magma_r(np.linspace(0, 0.5, 256))  # use the lighter portion of magma
-    cmap = plt.cm.colors.LinearSegmentedColormap.from_list('trunc(magma_r,0,0.5)', new_magma)
+    hot = plt.cm.get_cmap('hot', 256)
+    new_hot = hot(np.linspace(0.25, 1, 192))  # use the 3/4 of the higher end of cmap "hot"
+    cmap = plt.cm.colors.LinearSegmentedColormap.from_list('reversed_hot', new_hot[::-1])
     color_array = minmax.fit_transform(np.array(cross_entropy).reshape(-1, 1))
     template = '<span class="barcode" title="Cross Entropy: {:.2f}" style="color: black; background-color: {}">{}</span>'
     colored_string = ''
