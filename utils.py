@@ -31,9 +31,9 @@ def get_paper_and_score(corpus_path: str = "./PeerRead/data/acl_2017/", preserve
         aspect_index_list = [list(d.keys())[0] for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])]
         return aspect_sorted_list, aspect_index_list
 
-    paths = [corpus_path + s for s in ['train', 'dev', 'test']]
-    paper_paths = [p.path for p in chain(*[os.scandir(os.path.join(dir, 'parsed_pdfs')) for dir in paths])]
-    review_paths = [p.path for p in chain(*[os.scandir(os.path.join(dir, 'reviews')) for dir in paths])]
+    split_paths = [corpus_path + s for s in ['train', 'dev', 'test']]
+    paper_paths = [p.path for s in split_paths for p in os.scandir(os.path.join(s, 'parsed_pdfs')) if p.path.endswith('json')]
+    review_paths = [p.path for p in chain(*[os.scandir(os.path.join(s, 'reviews')) for s in split_paths]) if p.path.endswith('json')]
 
     # get papers
     papers = []
@@ -131,7 +131,7 @@ def ignore_func_word_loss_indices(y: list[int],
 
     Args:
         y: a sequence of token ids
-        minimum_context_length: refer to `minimum_context_length` of calculate_perplexity()
+        minimum_context_length: refer to `minimum_context_length` of calculate_surprisal()
     Example:
         indices = ignore_func_word_loss_indices(encode("Is my cat really cute or not?"), None)
         print(indices)  # [2, 4, 7] -> "cat" "cute" and "?"
@@ -144,61 +144,78 @@ def ignore_func_word_loss_indices(y: list[int],
     return [idx for idx, token_id in enumerate(y) if token_id not in func_ids]
 
 
-# def calculate_type_token_ratio(text: str,
-#                                sampling: bool = True,
-#                                sequence_length: int = 2048,
-#                                random_state: [None | int] = None) -> float:
-#     """
-#     Compute type-token ratio (TTR) of a document.
-#     TTR "refers to the ratio of different unique word stems (types) to the total number of words (tokens)", as per
-#     Wikipedia.
-#     """
-#     if sampling:
-#         # prepare rng
-#         if random_state is None:
-#             random_state = np.random.randint(np.iinfo(np.int32).max)
-#         else:
-#             if not 0 <= random_state <= np.iinfo(np.int32).max:
-#                 raise ValueError(f"Expect int >= 0 for `random_state`, but got {random_state}.")
-#         rng = np.random.default_rng(random_state)
-#
-#         # prepare data
-#         data = np.array(encode(text))  # np.array, token ids of the whole document
-#
-#         begin_loc = rng.integers(low=0, high=len(data) - sequence_length)
-#         x = data[begin_loc: begin_loc + sequence_length]
-#     else:
-#         x = encode(text)  # decode and encode can be fuzzy, so leave a safe margin
-#         if not (sequence_length - 2 <= len(x) <= sequence_length + 2):
-#             print(f"{text=}")
-#             print(f"{decode(encode(text))}")
-#             print(f"{x=}")
-#             raise ValueError(f'Without sampling, expect input length of {sequence_length=}, but got {len(x)}.')
-#         if not len(x) == sequence_length:
-#             print(f"Input ({len(x)=}) and {sequence_length=} not match exactly.")
-#     return len(set(x)) / len(x)
+def get_top_choices_and_ranks(logits: torch.Tensor,
+                              y: List[int],
+                              top_k: int = 30) -> Tuple[List[List[Tuple[str, int, float, float]]], List[int]]:
+    """
+    Computes the probabilities from the logits and identifies the top 'k' choices for each token. It returns the top
+    choices along with their ranks in the sequence. Each choice includes the token, its index, surprisal score, and
+    probability.
+
+    Args:
+        logits the logits output from a language model.
+        y: a list of token indices representing the actual sequence for comparison.
+
+    Returns:
+        a tuple containing two elements:
+            - a list of lists, each containing tuples for the top 'k' choices per token. Each tuple consists of the
+            token (str), its index (int), surprisal score (float), and probability (float).
+            - a list of integers representing the rank of each actual token in 'y' within the predicted probabilities.
+    """
+    logits_np = logits.numpy()
+    e_x = np.exp(logits_np - np.max(logits_np, axis=-1, keepdims=True))
+    probs_np = e_x / e_x.sum(axis=-1, keepdims=True)
+
+    top_choices = []
+    ranks = []
+    for i, token_probs in enumerate(probs_np):
+        # ensure top_k does not exceed the length of token_probs
+        current_top_k = min(top_k, token_probs.size)
+
+        # get the top k indices and their corresponding probabilities
+        top_indices = np.argpartition(token_probs, -current_top_k)[-current_top_k:]
+        top_probs = token_probs[top_indices]
+        sorted_indices = top_indices[np.argsort(-top_probs)]
+
+        token_choices = []
+        for idx in sorted_indices:
+            token = decode([idx])
+            token_prob = token_probs[idx]
+            token_surprisal = -np.log2(token_prob + 1e-9)
+            token_choices.append((token, idx, token_surprisal, token_prob))
+        top_choices.append(token_choices)
+
+        # get the rank of the current token in y
+        if i < len(y):
+            current_token = y[i]
+            sorted_probs = np.sort(token_probs)[::-1]  # Sort probabilities in descending order
+            # Find the rank of the current token's probability
+            current_token_rank = np.where(sorted_probs == token_probs[current_token])[0][0] + 1
+            ranks.append(current_token_rank)
+        else:
+            ranks.append(None)  # append None if y is shorter than logits  # todo: check
+
+    return top_choices, ranks
 
 
 @torch.no_grad()
-def calculate_perplexity(text: str,
-                         model: GPT,
-                         computing_method: str,
-                         device: str,
-                         sequence_length: int = 2048,
-                         block_size: int = 1024,
-                         minimum_context_length: int = 512,
-                         add_initial_eot: bool = True,
-                         sampling: bool = True,
-                         random_state: [None | int] = None,
-                         compile_model: bool = False,
-                         verbosity: bool = False) -> [np.float64 |
-                                                      Tuple[np.float64, List[np.float64], list, str]]:
+def calculate_surprisal(text: str,
+                        model: GPT,
+                        computing_method: str,
+                        device: str,
+                        sequence_length: int = 2048,
+                        block_size: int = 1024,
+                        minimum_context_length: int = 512,
+                        top_k: int = 30,
+                        add_initial_eot: bool = True,
+                        random_start_pos: bool = True,
+                        random_state: [None | int] = None,
+                        compile_model: bool = False) -> [np.float64 | Tuple[np.float64, List[np.float64], list, str]]:
     """
-    Calculate perplexity of a continuous sequence of tokens extracted from a given text.
+    Calculate surprisal in bits of a continuous sequence of tokens extracted from a given text.
     The function finds a random chunk of `minimum_context_length + sequence_length` tokens and returns the perplexity
     score of the last `sequence_length` tokens.
 
-    Uncomment the commented-out to have examples.
     Implementation follows code and advices from
         - https://huggingface.co/docs/transformers/perplexity
         - https://huggingface.co/spaces/evaluate-measurement/perplexity/blob/ac4135177bfee71b1efd7bd3aff62e456e30aef9/\
@@ -207,31 +224,32 @@ def calculate_perplexity(text: str,
 
 
     Args:
-        text: an English string longer than 2,000 words to get stable perplexity
-        model: a nano-GPT style casual language model
+        text: an English string longer than 2,000 words to get stable surprisal.
+        model: a nano-GPT language model.
         computing_method:
-            `naive`: approximate the perplexity score by moving `block_size` tokens forward every time
+            `naive`: approximate the surprisal scores by moving `block_size` tokens forward every time.
             `long_history`: approximate the perplexity score with a constraint that every nll is calculated with at
                 least `minimum_context_length`: for each `block_size` chunk of text, it only returns the perplexity of
                  the last `block_size - minimum_context_length` tokens. This method favors global 'surprise' over local
                  grammatical choice. It requires `minimum_context_length` more tokens than `naive`.
         device: device used for computation; should be legal in torch.device(), e.g. "cpu", "cuda", and "cuda:1"
-        sequence_length: the desired length of tokens whose perplexity score will be returned
-        block_size: max sequence length of `model`
+        sequence_length: the desired length of tokens whose surprisal scores will be returned
+        block_size: max sequence length of `model`.
         minimum_context_length: number of preceding tokens whose loss will not be returned; ignored when
-            `computing_method` set to `naive`
+            `computing_method` set to `naive`.
+        top_k: the number of top choices to consider for each token.
         add_initial_eot: whether include the eot token `<|endoftext|>` in the very beginning.
-        sampling: whether subsample `sequence_length` tokens from a longer document; if set false and
-            `computing_method` is `long_history`, return perplexity after the first `minimum_context_length` tokens;
-             if set false and `computing_method` is `naive`, return perplexity from the start of the document
-        random_state: supply a random number generator
-        compile_model: if True, compile the PyTorch model (require PyTorch 2.0 installed)
-        verbosity: set true to return intermediate variables (x, y, and the corresponding raw losses); otherwise only
-            perplexity returned; useful for interpretation.
+        random_start_pos: whether subsample `sequence_length` tokens from a longer document; if set false and
+            `computing_method` is `long_history`, return surprisal scores after the first `minimum_context_length`
+            tokens; if set false and `computing_method` is `naive`, return surprisal scores from the start of the
+            document.
+        random_state: supply a random number generator.
+        compile_model: if True, compile the PyTorch model (require PyTorch 2.0 installed).
 
     Returns:
-        If `verbosity`, perplexity score as a float; otherwise return a tuple of perplexity, raw 2-based cross entropy,
-         and string used for computation
+        a tuple of 2-based surprisal, detailed information for the top candidate tokens at each position, token ids at
+        each position, their rankings, and the (sampled) string used for computation.
+
     """
     # prepare rng
     if random_state is None:
@@ -260,8 +278,10 @@ def calculate_perplexity(text: str,
         raise ValueError("Data length is too short for the given sequence and context lengths.")
 
     losses = []
-    xs = []  # document for verbosity output
-    if sampling:
+    ys = []  # document verbosity output
+    choices = []  # document details of top choices at each position
+    ranks = []  # document ranking of each token based on its previous predictions
+    if random_start_pos:
         begin_loc = rng.integers(low=0, high=len(data) - sequence_length - minimum_context_length - 1)
     else:
         begin_loc = 0
@@ -280,31 +300,41 @@ def calculate_perplexity(text: str,
             if total_calculated_tokens + (block_size - minimum_context_length) <= sequence_length:
                 x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
                 y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
-                # xs.extend(x)
                 x, y = torch.from_numpy(x), torch.from_numpy(y)
             else:
                 remaining_tokens = sequence_length - total_calculated_tokens
                 num_ignore_masks = block_size - remaining_tokens
                 x = (data[begin_loc_tmp: begin_loc_tmp + remaining_tokens]).astype(np.int64)
                 y = (data[begin_loc_tmp + 1: begin_loc_tmp + remaining_tokens + 1]).astype(np.int64)
-                # xs.extend(x)
                 x = torch.cat((torch.from_numpy(x), torch.full((num_ignore_masks,), 1)),
                               dim=0).long()  # add dummy input 1, will be ignored anyway
                 y = torch.cat((torch.from_numpy(y), torch.full((num_ignore_masks,), -1)),
                               dim=0).long()  # ignore_index is -1
-            x, y = x.view(1, -1), y.view(1, -1)
-            _, loss = model.forward_reduction_none(x.to(device), y.to(device))
-            loss = loss.cpu()
+            x, y = x.view(1, -1), y.view(1, -1)  # 1, 1024
+            # forward pass and intermediary vars
+            logits, loss = model.forward_reduction_none(x.to(device), y.to(device))
+            loss = loss.cpu()  # 1024
+            logits = logits.cpu()  # 1, 1024, 50304
             # take nll of tokens after the first `minimum_context_length`
             reserve_idx = np.arange(minimum_context_length, block_size
                                     ) if not remaining_tokens else np.arange(
                 minimum_context_length, minimum_context_length + remaining_tokens)
             loss_long_history = loss[reserve_idx]
-            xs.extend(x.cpu().numpy()[0][reserve_idx].tolist())
+            # x_{:i} -> logits[i,:]-> y_i
+            # logits_long_history = logits.view(1024, -1)[[i-1 for i in reserve_idx], :]  # can be 512, 50304
+            logits_long_history = logits.view(1024, -1)[reserve_idx, :]  # can be 512, 50304
+            y_long_history = y.cpu().numpy()[0][reserve_idx].tolist()  # only for ranking
+            # calculate and document results
+            _choices, _ranks = get_top_choices_and_ranks(logits_long_history, y_long_history)
+            choices.extend(_choices)
+            ranks.extend(_ranks)
+            ys.extend(y.cpu().numpy()[0][reserve_idx].tolist())
             losses.extend(loss_long_history.tolist())
+            # control
             total_calculated_tokens += (block_size - minimum_context_length)
 
     # move `block_size` forward every time
+    # only for illustrative purposes
     if computing_method == 'naive':
         if len(data) < sequence_length + 1:
             raise RuntimeError(f"`text` too short ({len(data)})."
@@ -316,27 +346,31 @@ def calculate_perplexity(text: str,
         for begin_loc_tmp in begin_locs:  # with default settings, only two sequences to compute
             x = (data[begin_loc_tmp: begin_loc_tmp + block_size]).astype(np.int64)
             y = (data[begin_loc_tmp + 1: begin_loc_tmp + block_size + 1]).astype(np.int64)
-            xs.extend(x.tolist())
+            ys.extend(y.tolist())
             x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
-            _, loss = model.forward_reduction_none(x.to(device), y.to(device))
+            logits, loss = model.forward_reduction_none(x.to(device), y.to(device))
+            logits_naive = logits.cpu().view(1024, -1)  # 1024, 50304
             loss = loss.cpu()
             loss_naive = loss.tolist()  # take nll of all tokens
             losses.extend(loss_naive)
+            y_naive = y.cpu().numpy()[0]
+            # calculate and document results
+            _choices, _ranks = get_top_choices_and_ranks(logits_naive, y_naive, top_k)
+            choices.extend(_choices)
+            ranks.extend(_ranks)
 
-    if not len(xs) == sequence_length:
-        raise ValueError(f"Output length ({len(xs)}) does not match {sequence_length}.")
-    if not verbosity:
-        return np.exp(np.mean(losses))
-    if verbosity:
-        return (np.exp(np.mean(losses)),
-                [loss / np.log(2) for loss in losses],  # report 2-based cross-entropy
-                xs,
-                decode(xs))
+    if not len(ys) == sequence_length:
+        raise ValueError(f"Output length ({len(ys)}) does not match {sequence_length}.")
+    return ([loss / np.log(2) for loss in losses],  # 2-based surprisal at each position
+            choices,  # topic candidates at each position
+            ys,  # token ids for the (sampled) sequence used for surprisal calculation
+            ranks,  # ranking of the current token based on its previous prediction
+            decode([y for y in ys if y != -1]))  # sampled sequence for surprisal calculation
 
 
 def decode_ids_for_visualization(ids: List[int]) -> List[str]:
     """
-    Decode a list of token ids into their corresponding string representations for visualization purposes.
+    Decode a list of token ids into their corresponding string representations for visualization.
 
     Args:
         ids: A list of token ids to be decoded.
@@ -353,14 +387,14 @@ def colorize_text(words: List[str], cross_entropy: List[float]) -> str:
     """
     Colorize a list of words based on their cross-entropy values using a colormap.
 
-    This function takes in a list of words and their corresponding cross-entropy values.
+    This function takes in a list of tokens and their corresponding cross-entropy values.
     The cross-entropy values are first scaled to lie between 0 and 1 using the MinMaxScaler.
     Each word is then colorized based on its scaled cross-entropy value using the specified colormap.
     The resulting colorized words are combined into a single string, with each word wrapped in a span
     with the appropriate background color.
 
     Args:
-        words: A list of words to be colorized.
+        words: A list of tokens to be colorized.
         cross_entropy: A list of cross-entropy values corresponding to each word.
 
     Returns:
@@ -379,66 +413,49 @@ def colorize_text(words: List[str], cross_entropy: List[float]) -> str:
     return "[...]" + colored_string + "[...]"
 
 
-# if __name__ == '__main__':
-#     from model import GPTConfig
-#     from datasets import load_dataset
+def remove_trailing_zeros(lst: List[float]) -> List[float]:
+    """
+    Remove trailing zeros from a list of floating-point numbers, useful for stripping off -1 padded surprisals.
+
+    This function iterates over the list from the end to the beginning.
+    It finds the last non-zero element and returns the list up to (and including)
+    this element. If all elements are zero, it returns an empty list.
+
+    Parameters:
+        lst: The list from which trailing zeros are to be removed.
+
+    Returns:
+        the modified list without trailing zeros.
+    """
+    for i in range(len(lst) - 1, -1, -1):
+        if lst[i] != 0.0:
+            return lst[:i + 1]
+    return lst
+
+
+def remove_trailing_negative_ones(lst: List[float]) -> List[float]:
+    """
+    Remove trailing -1s from a list of token ides
+
+    Parameters:
+        lst: The list from which trailing zeros are to be removed.
+
+    Returns:
+        the modified list without trailing zeros.
+    """
+    for i in range(len(lst) - 1, -1, -1):
+        if lst[i] != -1.0:
+            return lst[:i + 1]
+    return lst
+
+# def nats2bits(nat: float):
+#     """
+#     Convert a measurement from nats (e-based logarithm, cross entropy from pytorch) to bits (2-based logarithm).
 #
-#     # load model
-#     device = 'cuda:0'
-#     out_dir = 'out_wikipedia_en'
-#     ckpt_path = os.path.join(out_dir, 'ckpt.pt')
-#     checkpoint = torch.load(ckpt_path, map_location=device)
-#     gptconf = GPTConfig(**checkpoint['model_args'])
-#     model = GPT(gptconf)
-#     state_dict = checkpoint['model']
-#     model.load_state_dict(state_dict)
+#     Parameters:
+#         nat: The value in nats to be converted to bits.
 #
-#     # load corpus
-#     wikitext_test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-#     text = " ".join(wikitext_test["text"]).replace('\n', '')
-#
-#     # calculate ppl of a document conditioned on at least 512 preceding tokens
-#     ppl = calculate_perplexity(text=text,
-#                                model=model,
-#                                computing_method='long_history',
-#                                device=device,
-#                                sequence_length=2048,
-#                                block_size=1024,
-#                                minimum_context_length=512,
-#                                sampling=True,
-#                                random_state=0,
-#                                compile_model=True,
-#                                verbosity=False)
-#     print(ppl)  # ~7.85
-#     # calculate ppl of a document conditioned on at least 512 preceding tokens, with verbosity turned on
-#     ppl, loss, x, y = calculate_perplexity(text=text,
-#                                            model=model,
-#                                            computing_method='long_history',
-#                                            device=device,
-#                                            sequence_length=2048,
-#                                            block_size=1024,
-#                                            minimum_context_length=512,
-#                                            sampling=True,
-#                                            random_state=0,
-#                                            compile_model=True,
-#                                            verbosity=True)
-#     print(ppl)  # ~7.85
-#
-#     # calculate ppl of a document naively by moving 1024 tokens per calculation
-#     ppl = calculate_perplexity(text=text,
-#                                model=model,
-#                                computing_method='naive',
-#                                device=device,
-#                                sequence_length=2048,
-#                                block_size=1024,
-#                                sampling=True,
-#                                random_state=0,
-#                                compile_model=True,
-#                                verbosity=False)
-#     print(ppl)  # ~7.91
-#
-#     # calculate ttr of a document by randomly samples a fixed-size of content
-#     ttr = calculate_type_token_ratio(text=text,
-#                                      sequence_length=2048,
-#                                      random_state=0)
-#     print(ttr)  # ~0.35
+#     Returns:
+#         The converted value in bits.
+#     """
+#     return np.exp(-nat / np.log(2))
