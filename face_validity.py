@@ -1,4 +1,6 @@
 """
+This script complements the section testing face validity in the paper 'A Novelty Measure for Scholarly Publications
+Aligned with Peer Review'.
 This module implements token- and sentence-level checks using surprisal from a Wikipedia-exposed GPT as a measure of
 novelty found in scholarly publication.
 
@@ -12,161 +14,188 @@ concept impact the model's perception of novelty.
 """
 
 import os
-import torch
 from typing import List
-import matplotlib.pyplot as plt
-from model import GPTConfig, GPT
+
+import torch
 from scipy.stats import ttest_ind
-from utils import calculate_surprisal, encode, decode
+
+from model import GPT, GPTConfig
+from utils import calculate_surprisal, decode, encode
 
 
-# default arguments
-sequence_length = 2048
-block_size = 1024
-minimum_context_length = 512
-
-
-def batch_fixed_context_check(context: str,
-                              paraphrases: List[str],
-                              minimum_context_length: int = 512) -> List[float]:
+def batch_fixed_context_check(
+    context: str, paraphrases: List[str], context_length: int = 512
+) -> List[float]:
     """
-    Calculate the average surprisal for a batch of paraphrases given a fixed context.
-
-    This function computes the average surprisal (in bits) for each paraphrase when appended to a given context.
-    The context and each paraphrase are concatenated, and surprisal scores are calculated for the concatenated text.
-    The average surprisal for the paraphrase part of the text is then computed and returned.
+    Computes the average surprisal (in bits) for each paraphrase when appended to a given context.
 
     Args:
         context: the fixed context string to prepend to each paraphrase.
         paraphrases: a list of paraphrase strings to be evaluated.
-        minimum_context_length: number of preceding tokens whose loss will not be returned.
+        context_length: number of preceding tokens whose loss will not be returned.
 
     Returns:
         a list containing the average surprisal score for each paraphrase.
 
     Raises:
-        RuntimeError: If there's a misalignment between the decoded ids and the paraphrase text.
+        RuntimeError: if there's a misalignment between the decoded ids and the paraphrase text.
     """
     context_len = len(encode(context))
     paraphrases_len = [len(encode(p)) for p in paraphrases]
 
     avg_surps = []
     for i, p in enumerate(paraphrases):
-        _surps, _, _ids, _, _ = calculate_surprisal(text=context + p * 150,  # a hack: make inputs long enough
-                                                    model=model,
-                                                    computing_method='long_history',
-                                                    device=device,
-                                                    random_start_pos=False,
-                                                    random_state=0,
-                                                    compile_model=True)
-        sent_surp = _surps[context_len - minimum_context_length:
-                           context_len + paraphrases_len[i] - minimum_context_length]
+        _surps, _, _ids, _, _ = calculate_surprisal(
+            text=context + p * 100,  # a hack: make inputs long enough
+            model=model,
+            context_length=512,
+            sequence_length=1024,
+            use_all_tokens=False,
+            device=device,
+            compile_model=True,
+        )
+        sent_surp = _surps[
+            context_len
+            - context_length : context_len
+            + paraphrases_len[i]
+            - context_length
+        ]
         avg_surps.append(sum(sent_surp) / len(sent_surp))
         # ensure alignment
-        if decode(_ids[context_len - minimum_context_length: context_len + paraphrases_len[
-            i] - minimum_context_length]) != paraphrases[i]:
-            raise RuntimeError('Misalignment found.')
+        if (
+            decode(
+                _ids[
+                    context_len
+                    - context_length : context_len
+                    + paraphrases_len[i]
+                    - context_length
+                ]
+            )
+            != paraphrases[i]
+        ):
+            raise RuntimeError("Misalignment found.")
 
     return avg_surps
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # load model
-    # device = 'cuda:0'
-    device = 'cpu'
-    out_dir = 'out_wikipedia_en'
-    ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+    device = "cpu"
+    out_dir = "out_wikipedia_en"
+    ckpt_path = os.path.join(out_dir, "ckpt.pt")
     checkpoint = torch.load(ckpt_path, map_location=device)
-    gptconf = GPTConfig(**checkpoint['model_args'])
+    gptconf = GPTConfig(**checkpoint["model_args"])
     model = GPT(gptconf)
-    state_dict = checkpoint['model']
+    state_dict = checkpoint["model"]
     model.load_state_dict(state_dict)
 
+    # fmt: off
     # context for all
     # adopted from https://www.nature.com/articles/nphys2904 with inline references stripped
     context = '''Quantum physics started with Max Planck's 'act of desperation', in which he assumed that energy is quantized in order to explain the intensity profile of the black-body radiation. Some twenty-five years later, Werner Heisenberg, Max Born, Pascual Jordan, Erwin Schrödinger and Paul Dirac wrote down the complete laws of quantum theory. A pertinent question then immediately came up — and was subsequently hotly debated by the founding fathers of quantum physics: what features of quantum theory make it different from classical mechanics? Is it Planck's quantization, Bohr's complementarity, Heisenberg's uncertainty principle or the superposition principle?
-    
+
     Schrödinger felt that the answer was none of the above. In some sense, each of these features can also be either present or mimicked within classical physics: energy can be coarse-grained classically — by brute force if nothing else; waves can be superposed; and complementarity and uncertainty can be found in the trade-off between the knowledge of the wavelength and position of the wave. But the one effect Schrödinger thought had no classical counterpart whatsoever — the characteristic trait of quantum physics — is entanglement.
-    
+
     The reason entanglement is so counterintuitive and presents a radical departure from classical physics can be nicely explained in terms of modern quantum information theory mixed with some of Schrödinger's jargon. The states of quantum systems are described by what Schrödinger called 'catalogues of information' (psi-wavefunctions). These catalogues contain the probabilities for all possible outcomes of the measurements we can make on the system. Schrödinger thought it odd that when we have two entangled physical systems, their joint catalogue of information can be better specified than the catalogue of each individual system. In other words, the whole can be less uncertain than either of its parts!
-    
+
     This is impossible, classically speaking. Imagine that someone asks you to predict the toss of a single (fair) coin. Most likely you would not bet too much on it because the outcome is completely uncertain. But consider that tossing two coins becomes less uncertain. Indeed, quantum mechanically, the state of two coins could be completely known, whereas the state of each of the coins is still maximally uncertain.
-    
+
     In quantum information theory, this leads to negative conditional entropies. When it comes to quantum coins, as we know the outcome, two predictable tosses have zero entropy. However, if we only toss one coin, the outcome is completely uncertain and therefore has one unit of entropy. If we were to quantify the entropy of the second toss, given that the first has been conducted, we would come up with one negative bit — that is, the entropy of two tosses minus the entropy of one toss: 0 − 1 = −1 bit.
-    
+
     It is precisely because of such peculiarities that the pioneers of quantum physics considered entanglement weird and counterintuitive. However, after around twenty years of intense research in this area, we are now accustomed to entanglement and, moreover, as we learn more about it we discover that entanglement emerges in unexpected places.
-    
+
     Negative entropies have a physical meaning in thermodynamics. My colleagues and I have shown that negative entropy refers to the situation where we can erase the state of the system, but at the same time obtain some useful work from it. In classical physics we need to invest work in order to erase information — a process known as Landauer's erasure, but quantum mechanically we can have it both ways. This is possible because the system erasing the information could be entangled with the system that is having its information erased. In that case, the total state could have zero entropy, so it can be reset without doing work. Moreover, the eraser now also results in a zero-entropy state and so it can be used to obtain one unit of work.
-    
+
     Furthermore, we realized that entanglement can exist in many-body systems (with arbitrarily large numbers of particles) as well as at finite temperature. Entanglement can be witnessed using macroscopic observables, such as the heat capacity. In fact, entanglement also serves as an order parameter characterizing quantum phase transitions, and there is growing evidence that quantum topological phase transitions can only be understood in terms of entanglement. A quantum phase transition is a macroscopic change driven by a variation in the ground state of a many-body system at zero temperature. But, in contrast to an ordinary phase, no local order parameter can distinguish between the ordered and the disordered topological phases. For instance, because the change from non-magnetic to magnetic behaviour constitutes an ordinary phase transition, we can check whether an ordinary phase is magnetic by measuring the state of just one spin. However, a topological phase transition cannot be characterized by a local parameter — it requires an understanding of the global entanglement of the whole state.
-    
+
     This is good news for stable encoding of quantum information. The idea is to use topological phases as quantum memories. This is precisely because topological states are gapped (that is, the energy gap between the ground and excited states is finite) and no local noise can kick the topological state out of the protected subspace. The ground states are also degenerate, meaning that there are different states with the same level of robustness that can be used to encode information.'''
+    # fmt: on
 
     # --------------------
     # Token level test
     # tokens starting immediate after the interested ones (e.g., low and room)
     # start from the first appearance of 'temperature' will not be considered
     # multiply the string by 100 simply make long enough for a forward pass of the model
-    less_novel_continuation = """ Building upon this research background, we propose a method that uses photonic crystals at low temperature to observe quantum entanglement.""" * 100
+
+    # fmt: off
+    normal_continuation = """ Building upon this research background, we propose a method that uses photonic crystals at low temperature to observe quantum entanglement.""" * 100
 
     novel_continuation = """ Building upon this research background, we propose a method that uses photonic crystals at room temperature to observe quantum entanglement.""" * 100
 
     nonsense_continuation1 = """ Building upon this research background, we propose a method that uses photonic crystals at cat temperature to observe quantum entanglement.""" * 100
+    # fmt: on
 
     # calculate ppl of a document conditioned on at least 512 preceding tokens
     novel = context + novel_continuation
-    less_novel = context + less_novel_continuation
+    normal = context + normal_continuation
     nonsense1 = context + nonsense_continuation1
 
-    novel_surps, novel_tops, novel_ids, \
-        novel_ranks, _ = calculate_surprisal(text=novel,
-                                             model=model,
-                                             computing_method='long_history',
-                                             device=device,
-                                             random_start_pos=False,
-                                             random_state=0,
-                                             compile_model=True)
-    less_novel_surps, less_novel_tops, less_novel_ids, \
-        less_novel_ranks, _ = calculate_surprisal(text=less_novel,
-                                                  model=model,
-                                                  computing_method='long_history',
-                                                  device=device,
-                                                  random_start_pos=False,
-                                                  random_state=0,
-                                                  compile_model=True)
-    nonsense1_surps, nonsense1_tops, nonsense1_ids, \
-        nonsense1_ranks, _ = calculate_surprisal(text=nonsense1,
-                                                 model=model,
-                                                 computing_method='long_history',
-                                                 device=device,
-                                                 random_start_pos=False,
-                                                 random_state=0,
-                                                 compile_model=True)
+    novel_surps, novel_tops, novel_ids, novel_ranks, _ = calculate_surprisal(
+        text=novel,
+        model=model,
+        context_length=512,
+        sequence_length=1024,
+        use_all_tokens=False,
+        device=device,
+        compile_model=True,
+    )
+    (
+        normal_surps,
+        normal_tops,
+        normal_ids,
+        normal_ranks,
+        _,
+    ) = calculate_surprisal(
+        text=normal,
+        model=model,
+        context_length=512,
+        sequence_length=1024,
+        use_all_tokens=False,
+        device=device,
+        compile_model=True,
+    )
+    (
+        nonsense1_surps,
+        nonsense1_tops,
+        nonsense1_ids,
+        nonsense1_ranks,
+        _,
+    ) = calculate_surprisal(
+        text=nonsense1,
+        model=model,
+        context_length=512,
+        sequence_length=1024,
+        use_all_tokens=False,
+        device=device,
+        compile_model=True,
+    )
 
     # the three statements share the same history
     # i.e., 1,184 preceding tokens (in `context`) + 16 tokens in `*continuations` before the interested words
     # so tokens before the interested ones should have the same surprisal scores
-    # i.e., tokens before 1186 + 16 - 512 = 672 -> 671
-    # print(decode(novel_ids[:671]))
-    assert novel_surps[:671] == less_novel_surps[:671] == nonsense1_surps[:671]
+    # i.e., tokens before 1 (warm-up token) + 1128 (context length) + 16 (same tokens in continuations) - 512 (history)
+    # = 633
+    # print(decode(novel_ids[:632]))  # see the shared history across examples
+    assert (
+        decode(novel_ids[:632])
+        == decode(normal_ids[:632])
+        == decode(nonsense1_ids[:632])
+    )
+    assert novel_surps[:632] == normal_surps[:632] == nonsense1_surps[:632]
 
-    # Surp('low') < Surp('room') < Surp('cat')
-    assert less_novel_surps[672] < novel_surps[672] < nonsense1_surps[672]
+    # surp('low') < surp('room') < surp('cat')
+    assert normal_surps[632] < novel_surps[632] < nonsense1_surps[632]
     # check surprisal scores for 'low', 'room', and 'cat'
-    print(less_novel_surps[672])  # 2.533176836082231
-    print(novel_surps[672])  # 4.733427248867125
-    print(nonsense1_surps[672])  # 17.649433365664702
-
-    # # copy-paste into a browser for visualization
-    # novel_color = colorize_text(decode_ids_for_visualization(novel_ids), novel_surp)
-    # less_novel_color = colorize_text(decode_ids_for_visualization(less_novel_ids), less_novel_surp)
-    # nonsense1_color = colorize_text(decode_ids_for_visualization(nonsense1_ids), nonsense1_surp)
-    # nonsense2_color = colorize_text(decode_ids_for_visualization(nonsense2_ids), nonsense2_surp)
+    print(f"""Surprisal of token {decode([normal_ids[632]]).strip()} is {normal_surps[632]}.""")  # 2.583745754828677
+    print(f"""Surprisal of token {decode([novel_ids[632]]).strip()}is {novel_surps[632]}.""")  # 4.422831740888419
+    print(f"""Surprisal of token {decode([nonsense1_ids[632]]).strip()} is {nonsense1_surps[632]}.""")  # 17.5066341068615
 
     # --------------------
     # Sentence level test
     # 20 paraphrases for each sentence using ChatGPT
     # with prompt "Please paraphrase the sentence 20 times: "
-    less_novel_paraphrases = [
+    # fmt: off
+    normal_paraphrases = [
         " Based on the foundation of prior research, we suggest a technique employing photonic crystals at reduced temperatures for the observation of quantum entanglement.",
         " Advancing from the existing research, our approach involves using photonic crystals in cold environments to study quantum entanglement.",
         " Expanding on previous studies, we introduce a method that utilizes photonic crystals in low-temperature settings to examine quantum entanglement.",
@@ -211,18 +240,27 @@ if __name__ == '__main__':
         "Furthering past research, we suggest a method making use of photonic crystals at average temperatures for the observation of quantum entanglement.",
         "Capitalizing on existing research, our approach includes using photonic crystals at standard room temperatures to scrutinize quantum entanglement.",
     ]
+    # fmt: on
 
-    less_novel_avg_surps = batch_fixed_context_check(context, less_novel_paraphrases)
+    normal_avg_surps = batch_fixed_context_check(context, normal_paraphrases)
     novel_avg_surps = batch_fixed_context_check(context, novel_paraphrases)
 
-    # boxplot
-    plt.figure(figsize=(10, 6))
-    plt.boxplot([less_novel_avg_surps, novel_avg_surps], labels=["Less Novel", "Novel"])
-    plt.title("Boxplot of Average Surprisals")
-    plt.ylabel("Average Surprisal")
-    plt.grid(True)
-    plt.show()
+    # # boxplot
+    # import matplotlib.pyplot as plt
+    # plt.figure(figsize=(10, 6))
+    # plt.boxplot([normal_avg_surps, novel_avg_surps], labels=["Normal", "Novel"])
+    # plt.title("Boxplot of Average Surprisal Values")
+    # plt.ylabel("Average Surprisal")
+    # plt.grid(True)
+    # plt.show()
 
     # one-tailed Welch’s unequal variances t-test
-    print(ttest_ind(novel_avg_surps, less_novel_avg_surps, equal_var=False, alternative='greater'))
-    # TtestResult(statistic=3.042882865143667, pvalue=0.0021572396740576266, df=36.67974073507132)
+    print(
+        ttest_ind(
+            novel_avg_surps,
+            normal_avg_surps,
+            equal_var=False,
+            alternative="greater",
+        )
+    )
+    # TtestResult(statistic=2.9237765758084704, pvalue=0.002953316723794009, df=36.52733499644924)
