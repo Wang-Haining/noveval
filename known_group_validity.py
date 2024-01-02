@@ -19,10 +19,7 @@ from utils import calculate_surprisal, remove_trailing_zeros
 
 if __name__ == "__main__":
     # load model
-    if torch.cuda.is_available():
-        device = "cuda:0"  # use GPU if available
-    else:
-        device = "cpu"  # fallback to CPU
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     out_dir = "out_wikipedia_en"
     ckpt_path = os.path.join(out_dir, "ckpt.pt")
     checkpoint = torch.load(ckpt_path, map_location=device)
