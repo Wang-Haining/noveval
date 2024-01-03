@@ -28,8 +28,8 @@ if __name__ == "__main__":
     state_dict = checkpoint["model"]
     model.load_state_dict(state_dict)
 
-    # read in noveval corpus for authorship verification
-    input_file = "resource/noveval_content.jsonl"
+    # read in CLEF PAN Authorship Verification corpus for authorship verification
+    input_file = "resource/clef_pan_av.jsonl"
     papers = []
     with open(input_file, "r") as f:
         for line in f:
