@@ -79,7 +79,7 @@ if __name__ == "__main__":
             equal_var=False,
         )
     )
-    # TtestResult(statistic=2.6514487979253913, pvalue=0.005007329796631405, df=66.33431945489477)
+    # TtestResult(statistic=2.6492691643863586, pvalue=0.0050367756130474195, df=66.32119319630499)
 
     # # uncomment below to examine a specific paper
     # from utils import decode
