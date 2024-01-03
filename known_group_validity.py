@@ -15,7 +15,7 @@ import torch
 from scipy.stats import ttest_ind
 
 from model import GPT, GPTConfig
-from utils import calculate_surprisal, remove_trailing_zeros
+from utils import calculate_surprisal
 
 if __name__ == "__main__":
     # load model
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                 device=device,
                 compile_model=True,
             )
-            surps = remove_trailing_zeros(surps)  # ignore -1 padded surprisal scores
+            # surps = remove_trailing_zeros(surps)  # ignore -1 padded surprisal scores
             print(f"Paper {p['id']} has an average surprisal of {np.mean(surps):.3}.")
             papers_surprisal.update({p["id"]: surps})
         except ValueError:
@@ -71,11 +71,18 @@ if __name__ == "__main__":
             else:
                 normal_paper_avg_surprisal.append(avg_surprisal)
 
-    print(ttest_ind(novel_paper_avg_surprisal, normal_paper_avg_surprisal, alternative="greater", equal_var=False))
-    # TtestResult(statistic=2.651448585366229, pvalue=0.005007332751688865, df=66.33431239973753)
+    print(
+        ttest_ind(
+            novel_paper_avg_surprisal,
+            normal_paper_avg_surprisal,
+            alternative="greater",
+            equal_var=False,
+        )
+    )
+    # TtestResult(statistic=2.6514487979253913, pvalue=0.005007329796631405, df=66.33431945489477)
 
     # # uncomment below to examine a specific paper
-    # from utils import remove_trailing_zeros, remove_trailing_negative_ones, decode
+    # from utils import decode
     #
     # # take the 13th paper as an example (it's 0-based index, 13th paper is indexed with 12)
     # surps, tops, ids, ranks, raw = calculate_surprisal(
@@ -87,4 +94,4 @@ if __name__ == "__main__":
     #     device=device,
     #     compile_model=True,
     # )
-    # print(list(zip(*[remove_trailing_zeros(surps), [decode([i]) for i in remove_trailing_negative_ones(ids)]])))
+    # print(list(zip(*[surps, [decode([i]) for i in ids]])))
