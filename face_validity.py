@@ -187,7 +187,7 @@ if __name__ == "__main__":
     assert normal_surps[632] < novel_surps[632] < nonsense1_surps[632]
     # check surprisal scores for 'low', 'room', and 'cat'
     print(f"""Surprisal of token {decode([normal_ids[632]]).strip()} is {normal_surps[632]}.""")  # 2.583745754828677
-    print(f"""Surprisal of token {decode([novel_ids[632]]).strip()}is {novel_surps[632]}.""")  # 4.422831740888419
+    print(f"""Surprisal of token {decode([novel_ids[632]]).strip()} is {novel_surps[632]}.""")  # 4.422831740888419
     print(f"""Surprisal of token {decode([nonsense1_ids[632]]).strip()} is {nonsense1_surps[632]}.""")  # 17.5066341068615
 
     # --------------------
