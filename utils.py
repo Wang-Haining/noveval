@@ -3,12 +3,8 @@ This script provides utilities useful in producing the findings in the paper 'A 
 Publications Aligned with Peer Review'.
 """
 
-import json
-import math
-import os
-import re
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,126 +16,6 @@ from sklearn.preprocessing import MinMaxScaler
 from model import GPT
 
 __author__ = "hw56@indiana.edu"
-
-
-def prepare_acl2017_corpus(
-    corpus_path: str = "./PeerRead/data/acl_2017/", preserve_ordinal: bool = True
-) -> Dict[str, List]:
-    """
-    Prepare ACL2017 papers and novelty ratings from ACL2017 subset of PeerRead.
-
-    Args:
-        corpus_path: the root path of the ACL2017 corpus. Defaults to "./PeerRead/data/acl_2017/".
-        preserve_ordinal: if True, round up mean scores for preserving ordinal scale. Defaults to True.
-
-    Returns:
-        a dictionary containing sorted lists of paper texts, titles, and originality scores.
-
-    Raises:
-        AttributeError: if the indices between paper texts and review scores are not aligned.
-
-    References:
-        - PeerRead: https://arxiv.org/abs/1804.09635
-    """
-
-    def round_up(mean_score: float) -> int:
-        """Round up mean score to the nearest whole number for ordinal preservation."""
-        return int(math.ceil(mean_score - 0.5))
-
-    def get_review_aspect_score(
-        reviews: List[Dict], aspect: str, preserve_ordinal: bool
-    ) -> Tuple[List[int], List[int]]:
-        """
-        Extract and process aspect scores from reviews.
-
-        Args:
-            reviews: list of review data.
-            aspect: the aspect to extract scores for.
-            preserve_ordinal: if True, round up mean scores for preserving ordinal scale.
-
-        Returns:
-            sorted lists of aspect scores and corresponding paper indices.
-        """
-        if not preserve_ordinal:
-            aspect_dict = [
-                {int(r["id"]): np.mean([int(d[aspect]) for d in r["reviews"]])}
-                for r in reviews
-            ]
-        else:
-            aspect_dict = [
-                {
-                    int(r["id"]): round_up(
-                        np.mean([int(d[aspect]) for d in r["reviews"]])
-                    )
-                }
-                for r in reviews
-            ]
-        aspect_sorted_list = [
-            list(d.values())[0]
-            for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])
-        ]
-        aspect_index_list = [
-            list(d.keys())[0]
-            for d in sorted(aspect_dict, key=lambda x: list(x.keys())[0])
-        ]
-        return aspect_sorted_list, aspect_index_list
-
-    # define paths for paper and review data
-    split_paths = [os.path.join(corpus_path, s) for s in ["train", "dev", "test"]]
-    paper_paths = [
-        p.path
-        for s in split_paths
-        for p in os.scandir(os.path.join(s, "parsed_pdfs"))
-        if p.path.endswith(".json")
-    ]
-    review_paths = [
-        p.path
-        for s in split_paths
-        for p in os.scandir(os.path.join(s, "reviews"))
-        if p.path.endswith(".json")
-    ]
-
-    # process papers
-    papers = [json.load(open(f, "r")) for f in paper_paths]
-    text_dict = [
-        {
-            int(paper["name"].split(".pdf")[0]): "\n\n".join(
-                [d["text"] for d in paper["metadata"]["sections"]]
-            )
-        }
-        for paper in papers
-    ]
-    title_dict = [
-        {int(paper["name"].split(".pdf")[0]): paper["metadata"]["title"]}
-        for paper in papers
-    ]
-    text_sorted_list = [
-        list(d.values())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])
-    ]
-    text_check_list = [
-        list(d.keys())[0] for d in sorted(text_dict, key=lambda x: list(x.keys())[0])
-    ]
-    title_sorted_list = [
-        list(d.values())[0] for d in sorted(title_dict, key=lambda x: list(x.keys())[0])
-    ]
-
-    # process reviews
-    reviews = [json.load(open(f, "r")) for f in review_paths]
-    review_scores = {}
-    review_checks = {}
-    score, check = get_review_aspect_score(reviews, "ORIGINALITY", preserve_ordinal)
-    review_scores.update({"originality": score})
-    review_checks.update({"originality": check})
-
-    # check if paper and review indices are aligned
-    if not all(v == text_check_list for v in list(review_checks.values())):
-        raise AttributeError(
-            "Expect aligned indices between paper and review aspect scores."
-        )
-
-    review_scores.update({"paper": text_sorted_list, "title": title_sorted_list})
-
-    return review_scores
 
 
 def encode(text: str) -> List[int]:
@@ -158,32 +34,6 @@ def decode(ids: List[int]) -> str:
     enc = tiktoken.get_encoding("gpt2")
 
     return enc.decode(ids)
-
-
-def clean_up_artifacts(text_from_parsed_pdf: str) -> str:
-    """
-    Clean up obvious artifacts seen in the parsed pdfs.
-
-    This function performs the following operations:
-    - Removes occurrences of newlines followed by a number (e.g., "\n123").
-    - Removes specific artifact patterns like "1 000\n\n" and "1 000\n".
-    - Removes long sequences of quotation marks.
-
-    Args:
-        text extracted from a parsed PDF.
-
-    Returns:
-        cleaned-up text.
-    """
-    newline_number_pattern = re.compile(r"\n\d+")
-    one_thousand_pattern = re.compile(r"1 000\n\n?")
-    long_quotes_pattern = re.compile(r"\"{10,}")
-
-    text = newline_number_pattern.sub("", text_from_parsed_pdf)
-    text = one_thousand_pattern.sub("", text)
-    text = long_quotes_pattern.sub("", text)
-
-    return text
 
 
 def get_top_choices_and_ranks(
@@ -309,6 +159,9 @@ def calculate_surprisal(
     ys = []  # document verbosity output
     choices = []  # document details of top choices at each position
     ranks = []  # document ranking of each token based on its previous predictions
+    # if use_all_tokens, sequence_length is only a recommended, minimum length
+    total_length = len(data) if use_all_tokens else sequence_length
+
     # whether to select a random (fixed-length) section to measure
     if random_state:
         rng = np.random.default_rng(random_state)
@@ -336,8 +189,6 @@ def calculate_surprisal(
         # 2. handle edge cases where the remaining tokens do not fit into block_size but are longer than context_length
         # 3. ignore the last tokens shorter than context_length tokens
         step = block_size - context_length
-        # if use_all_tokens, sequence_length is only a recommended, minimum length
-        total_length = len(data) if use_all_tokens else sequence_length
         max_iters = (
             total_length // step
             if not (total_length % step)
@@ -362,7 +213,7 @@ def calculate_surprisal(
                     x = (data[begin_loc:-1]).astype(np.int64)
                     y = (data[begin_loc + 1 :]).astype(np.int64)
                 else:
-                    if len(data) - 1 >= block_size + begin_loc:
+                    if len(data) >= block_size + begin_loc:
                         x = (data[begin_loc : begin_loc + block_size]).astype(np.int64)
                         y = (data[begin_loc + 1 : begin_loc + block_size + 1]).astype(
                             np.int64
@@ -372,6 +223,10 @@ def calculate_surprisal(
                         y = (data[begin_loc + 1 :]).astype(np.int64)
             else:
                 continue
+            # ensure x and y have the same shape
+            min_length = min(len(x), len(y))
+            x = x[:min_length]
+            y = y[:min_length]
             x = torch.from_numpy(x).view(1, -1)  # 1, <=1024
             y = torch.from_numpy(y).view(1, -1)  # 1, <=1024
             # forward pass
@@ -402,22 +257,28 @@ def calculate_surprisal(
             )
         # ignore last tokens do not naturally fit in a forward pass
         begin_locs = [
-            begin_loc + i * block_size for i in range(sequence_length // block_size)
+            begin_loc + i * block_size for i in range(total_length // block_size)
         ]
 
-        for begin_loc_tmp in begin_locs:
-            x = (data[begin_loc_tmp : begin_loc_tmp + block_size]).astype(np.int64)
-            y = (data[begin_loc_tmp + 1 : begin_loc_tmp + block_size + 1]).astype(
+        for begin_loc in begin_locs:
+            x = (data[begin_loc : begin_loc + block_size]).astype(np.int64)
+            y = (data[begin_loc + 1 : begin_loc + block_size + 1]).astype(
                 np.int64
             )
-            ys.extend(y.tolist())
-            x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
+            # ensure x and y have the same shape (for edge cases)
+            min_length = min(len(x), len(y))
+            x = x[:min_length]
+            y = y[:min_length]
+            x = torch.from_numpy(x).view(1, -1)  # 1, <=1024
+            y = torch.from_numpy(y).view(1, -1)  # 1, <=1024
+            # x, y = torch.from_numpy(x).view(1, -1), torch.from_numpy(y).view(1, -1)
             logits, loss = model.forward_reduction_none(x.to(device), y.to(device))
-            _logits = logits.cpu().view(1024, -1)  # 1024, 50304
+            _logits = logits.cpu().view(-1, 50304)  # <=1024, 50304
             loss = loss.cpu()
             loss_naive = loss.tolist()  # take loss of all tokens in a forward pass
             losses.extend(loss_naive)
-            _y = y.cpu().numpy()[0]
+            _y = y.cpu().numpy()[0].tolist()
+            ys.extend(_y)
             # calculate and document results
             _choices, _ranks = get_top_choices_and_ranks(_logits, _y, top_k)
             choices.extend(_choices)
