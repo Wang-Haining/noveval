@@ -19,7 +19,7 @@ module load cudatoolkit/11.7
 
 ######  Job commands go below this line #####
 # load venv
-source .ppl/bin/activate
+source .venv/bin/activate
 
 # python scripts
 torchrun --standalone --nproc_per_node=4 train.py config/train_gpt2_wikipedia_en.py
