@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=1-0:0:00
+#SBATCH --time=0-2:0:00
 #SBATCH --mem=32gb
 #SBATCH --partition=gpu
 #SBATCH --mail-type=ALL
