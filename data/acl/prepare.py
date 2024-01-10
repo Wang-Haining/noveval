@@ -1,15 +1,16 @@
 """
-This module prepares a subset of  the arXiv corpus for model training and evaluation.
+This module prepares a subset of the acl anthology corpus (https://github.com/shauryr/ACL-anthology-corpus) for
+finetuning a GPT-2 model.
+
 The script is adopted from `karpathy/nanoGPT/data/openwebtext/prepare.py` with some modification.
 """
 
 import os
 from tqdm import tqdm
-import pandas as pd
 import numpy as np
 import tiktoken
 import pyarrow.parquet as pq
-from datasets import Dataset # huggingface datasets
+from datasets import Dataset  # huggingface datasets
 
 # number of workers in .map() call
 # good number to use is ~order number of cpu cores // 2
