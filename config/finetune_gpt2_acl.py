@@ -10,10 +10,10 @@ block_size = 1024
 dataset = 'acl'
 gradient_accumulation_steps = 5
 
-# it takes ~504 iters to exhaust one epoch of acl (of 165,309,909 tokens)
-# we run 10 epochs of finetuning
-# this makes total number of tokens be ~1.6B
-max_iters = 141000 + 5000  # we resume from the pretrained gpt2 (141000 iters)
+# it takes ~561 iters to exhaust one epoch of acl (of 183,981,198 tokens)
+# we run ~11 epochs of finetuning
+# to get a total number of tokens of ~2B
+max_iters = 141000 + 6000  # we resume from the pretrained gpt2 (141000 iters)
 
 # eval stuff
 eval_interval = 1000
