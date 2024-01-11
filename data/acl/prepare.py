@@ -19,10 +19,10 @@ dataset = Dataset(pq.read_table('data/acl/acl-publication-info.74k.parquet', mem
 
 # filter it to get relevant abstracts
 
-# dataset = dataset.filter(lambda x: any(f in x['categories'] for f in relevant_fields))
-dataset = dataset.filter(lambda x: int(x['year']) <= 2015)
-# now we have 25634 abstracts in relevant fields updated before 2016
-# reserve 'abstract' ('text') feature only
+dataset = dataset.filter(lambda x: int(x['year']) <= 2016)
+dataset = dataset.filter(lambda x: len(x['full_text']) >= 5)
+# now we have 39，663 acl articles published before 2017 and not too short
+# reserve full text only
 dataset = dataset.remove_columns(['acl_id', 'abstract', 'corpus_paper_id', 'pdf_hash',
                                   'numcitedby', 'url', 'publisher', 'address', 'year', 'month', 'booktitle',
                                   'author', 'title', 'pages', 'doi', 'number', 'volume', 'journal', 'editor',
@@ -37,11 +37,11 @@ split_dataset['val'] = split_dataset.pop('test') # rename the test split to val
 # DatasetDict({
 #     train: Dataset({
 #         features: ['text'],
-#         num_rows: 39104
+#         num_rows: 37679
 #     })
 #     val: Dataset({
 #         features: ['text'],
-#         num_rows: 2059
+#         num_rows: 1984
 #     })
 # })
 
