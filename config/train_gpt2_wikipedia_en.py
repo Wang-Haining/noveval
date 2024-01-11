@@ -11,7 +11,7 @@ gradient_accumulation_steps = 5
 
 # it takes 14,176 iters to exhaust one epoch of wikipedia_en
 # we run 10 epochs of training
-# this makes total number of tokens be 46B
+# this makes total number of tokens of 46B
 max_iters = 141000
 lr_decay_iters = 141000
 
