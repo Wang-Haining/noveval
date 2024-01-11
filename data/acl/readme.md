@@ -8,11 +8,11 @@ Visit https://github.com/shauryr/ACL-anthology-corpusand download the dataset (~
 
 Then run `python data/acl/prepare.py`, we can get:
 
-- train.bin is ~316MB, val.bin ~17MB  
-- train has 165,309,909 tokens
-- val has 8,910,174 tokens
+- train.bin is ~351MB, val.bin ~18MB  
+- train has 183,981,198 tokens
+- val has 9,426,326 tokens
 
-this came from 41,163 acl anthology papers published before 2016.
+this came from 39,663 acl anthology papers published before 2017.
 
 references:
 
